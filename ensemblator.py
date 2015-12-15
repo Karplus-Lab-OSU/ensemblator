@@ -1,0 +1,2996 @@
+#!/usr/bin/env python
+
+
+import numpy as np
+import time
+import Bio
+from optparse import OptionParser
+from Bio.PDB.Superimposer import Superimposer
+from Bio.PDB.PDBParser import PDBParser
+from Bio.PDB.PDBIO import PDBIO
+import os
+import sys
+from itertools import combinations
+from itertools import permutations
+import itertools
+from Bio.SVDSuperimposer import SVDSuperimposer
+import math
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+from operator import itemgetter
+
+# definition for a type of dictionary that will allow new dictionaries to
+# be added on demand
+class NestedDict(dict):
+    def __missing__(self, key):
+        self[key] = NestedDict()
+        return self[key]
+
+# parser for group numbers
+def parse_range(option, opt, value, parser):
+    result = set()
+    for part in value.split(','):
+        x = part.split('-')
+        result.update(range(int(x[0]), int(x[-1]) + 1))
+        setattr(parser.values, option.dest, sorted(result))
+    
+# parser for command line options
+parser=OptionParser()
+parser.add_option("-i",
+                  "--input",
+                  dest="input",
+                  metavar="FILE",
+                  help="This should be a pdb file output by prepare_input.py."
+                  )
+parser.add_option("-d",
+                  "--dcut",
+                  dest="dcut",
+                  type = 'float',
+                  default=2.5,
+                  help="Distance cutoff for core decision."
+                  )
+parser.add_option("--auto",
+                  action="store_true",
+                  dest="auto",
+                  default=False,
+                  help=("If set, will cluster the pairwise results and rerun "
+                        "the analysis using the detected groups. Will ignore "
+                        "manually set m and n values while used. In the final "
+                        "outputs, the first group in a filename corresponds to "
+                        "group M, and the second to N. "
+                        "ie. eeLocal_Group_0_Group_1.png has group 0 as M and "
+                        "group 1 as N."
+                        )
+                  )
+parser.add_option("--maxclust",
+                  type='int',
+                  dest="maxclust",
+                  default=6,
+                  help=("Maximum number of clusters to group the results into "
+                        "when using the --auto flag."
+                        )
+                  )
+parser.add_option("-m",
+                  "--groupm",
+                  dest="groupm",
+                  type = 'str',
+                  action="callback",
+                  callback=parse_range,
+                  help=("Models to use in comparision in the first group. Use "
+                        "dashes for a range, commas separate entries. "
+                        "E.g. 1,3,5,8-19,23"
+                        )
+                  )
+parser.add_option("-n",
+                  "--groupn",
+                  dest="groupn",
+                  type = 'str',
+                  action="callback",
+                  callback=parse_range,
+                  help=("Models to use in comparision in the second group. "
+                        "Use dashes for a range, commas separate entries. "
+                        "E.g. 1,3,5,8-19,23. OPTIONAL: do not include a "
+                        "group N in order to do a single ensemble analysis."
+                        )
+                  )
+parser.add_option("-l",
+                  "--log",
+                  action="store_true",
+                  dest="log",
+                  default=False,
+                  help="If set, will generate a log file: 'eeCore.log'."
+                  )
+parser.add_option("--skiplocal",
+                  action="store_true",
+                  dest="skiplocal",
+                  default=False,
+                  help=("If set, will skip eeLocal analysis. Useful if only "
+                        "changing dcut."
+                        )
+                  )
+parser.add_option("-a",
+                  "--avg",
+                  action="store_true",
+                  dest="avg",
+                  default=False,
+                  help=("If set, will calculate and plot averages instead "
+                        "of RMS."
+                        )
+                  )
+parser.add_option("-c",
+                  "--color",
+                  action="store_true",
+                  dest="color",
+                  default=False,
+                  help=("If set, will set b-factors in the final overlay to "
+                        "relative inter-group LODR scores (if possible, "
+                        "otherwise uses group m scores). Will not do "
+                        "anything in auto-mode."
+                        )
+                  )
+(options, args) = parser.parse_args()
+# required options
+if options.auto == False:
+    if not options.groupm:
+        parser.error('At least Group M must be specified, or turn on --auto')
+if not options.input:   # if filename is not given
+    parser.error('Input not specified')
+if options.maxclust < 2:   
+    parser.error('Minimum of 2 clusters. Try again with a higher maxclust')
+
+# writes a log file, which will be then deleted if the user didn't ask for it
+log = open("ensemblator.log", "a")
+
+
+
+
+
+
+# this is a function that will separate all the clusters into their own
+# pdb_files
+def cluster_sep():
+    pdb = open(outputname_all_overlay, 'r')
+    atoms = []
+    for line in pdb:
+        if line[0:4] == "ATOM" \
+                or line[0:6] == "HETATM" \
+                or line[0:6] == "MODEL " \
+                or line[0:6] == "CONECT" \
+                or line[0:3] == "END" \
+                or line[0:6] == "MASTER" \
+                or line[0:3] == "TER" \
+                or line[0:6] == "ENDMDL" \
+                or line[0:5] == "HELIX" \
+                or line[0:5] == "SHEET" \
+                or line[0:6] == "REMARK":
+            atoms = atoms + [line,]
+
+
+
+    # dictionary of all the values to use for coloring
+    group_dict = {}
+    groups = open('groups_legend.tsv','r')
+    # read every line except the first (the header)
+    groups_lines = groups.readlines()[1:]
+    groups.close()
+    for line in groups_lines:
+        # if this residue already has a color value stored
+        if (int(line.split()[0])) in group_dict:
+            pass # do nothing        
+        else:
+            group_dict[int(line.split()[0])] = int(line.split()[1]) 
+            # otherwise store a value in it
+
+    formatted_dict = {}
+
+    for key in group_dict:
+        # ensure there are two digits after the decimal place
+        replacement = "%0.2f" % (group_dict[key],)
+        # ensures the replacement value is the correct number of digits
+        while len(replacement) != 5:
+            replacement = " " + replacement
+        # stores this value for use, should be a five character string 
+        # like so: 00.10
+        formatted_dict[key] = replacement
+
+    # list of new lines that has the b-factors replaced
+    new_atoms = []
+    key = None
+
+    for line in atoms:
+        
+        try:
+            key = int(line[11:15])
+            new_atoms = new_atoms + [line,]
+        except:
+            if line[0:4] == "ATOM" or line[0:6] == "HETATM":
+                new_atoms = new_atoms + [
+                                            str(line[0:60]) +
+                                            " " +
+                                            str(formatted_dict[key]) +
+                                            str(line[67:]),
+                                        ]
+            else:
+                new_atoms = new_atoms + [line,]
+
+    group_list = []
+    for line in new_atoms:
+        if line[0:4] == "ATOM" or line[0:6] == "HETATM":
+            group_list = group_list + [line[61:66],]
+    group_set = set(group_list)
+    group_list = list(group_set)
+
+    for key in group_list:
+       
+        
+        output = open("group"+ str(int(float(key))) +".pdb", "w")
+        
+        old_line = None
+        for line in new_atoms:
+            try:
+                if line[0:4] == "ATOM" or line[0:6] == "HETATM":
+                    group = line[61:66]
+            except:
+                pass
+            try:
+                try:   
+                    if group == key \
+                            and old_line[0:5] == "MODEL" \
+                            and old_line[0:3] == "TER":                    
+                        output.write(old_line)
+                except:
+                    pass         
+                if group == key \
+                        and line[0:5] != "MODEL" \
+                        and line[0:3] != "TER":    
+                    output.write(line)
+            except:
+                pass
+            old_line = line
+            
+        output.close()
+
+# this is a function that will set b factors based on intergroup lodr if
+# available, otherwise it will just use group m lodr
+def pdb_b_fac():    
+    
+    # open the output and remove it, in order to rewrite our version of it
+    pdb = open(outputname, 'r')
+    os.remove(outputname)
+    output = open(outputname, "w")
+
+    value_dict = {}
+    # get the intergroup lodr, or the group m lodr
+    for resid in eelocal_dict["group_m_lodr"]:
+        try:
+            if eelocal_dict\
+                       ["group_m_lodr"]\
+                       [resid] is not None:
+                value_dict[resid] = float(eelocal_dict\
+                                          ["inter_group_lodr"]\
+                                          [resid]
+                                          )
+        except:
+            if eelocal_dict\
+                        ["group_m_lodr"]\
+                        [resid] is not None:
+                value_dict[resid] = float(eelocal_dict\
+                                          ["group_m_lodr"]\
+                                          [resid]
+                                          )
+    # 60 - 66 is the b-factors
+    # list of all the ATOM lines
+    atoms = []
+    # actually it's getting all the lines
+    for line in pdb:
+        if line[0:4] == "ATOM" or \
+               line[0:6] == "HETATM" or \
+               line[0:6] == "MODEL " or \
+               line[0:6] == "CONECT" or \
+               line[0:3] == "END" or \
+               line[0:6] == "MASTER" or \
+               line[0:3] == "TER" or \
+               line[0:6] == "ENDMDL" or \
+               line[0:5] == "HELIX" or \
+               line[0:5] == "SHEET" or \
+               line[0:6] == "REMARK":
+            atoms = atoms + [line,]
+
+    # figure out what the maximum value in the color values is
+    maximum = max(value_dict, key=lambda i: value_dict[i])
+    maximum = value_dict[maximum]
+
+    # dictionary of normalized values
+    norm_dict = {}
+
+    for key in value_dict:
+        # normalize to the maximum
+        value = value_dict[key] / maximum
+        # ensure there are two digits after the decimal place
+        replacement = "%0.2f" % (value,)
+        # ensures the replacement value is the correct number of digits
+        while len(replacement) != 5:
+            replacement = " " + replacement
+        # stores this value for use, should be a five character string like so:
+        # " 00.10"
+        norm_dict[key] = replacement
+
+    # list of new lines that has the b-factors replaced
+    new_atoms = []
+    for line in atoms:
+        try:
+            key = int(line[22:26])
+            if line[0:4] == "ATOM" or line[0:6] == "HETATM":       
+                if key in norm_dict: 
+                    # replaces the value
+                    new_atoms = new_atoms + [
+                                str(line[0:60]) +
+                                    " " +
+                                    str(norm_dict[key]) +
+                                    str(line[67:]),
+                                ]
+                else:
+                    new_atoms = new_atoms + [
+                                    str(line[0:60]) +
+                                    " 00.00" +
+                                    str(line[67:]),
+                                ]
+        except:
+            new_atoms = new_atoms + [line,]
+    # write the output
+    for line in new_atoms:
+        output.write(line)
+    output.close()
+    
+# a funtion to get the distance of any two atoms, given coordinates    
+def get_dist(atom_y, atom_x):
+    xd = atom_y[0] - atom_x[0]
+    yd = atom_y[1] - atom_x[1]
+    zd = atom_y[2] - atom_x[2]
+    distance = math.sqrt(xd*xd + yd*yd + zd*zd)
+    return distance
+
+
+
+
+
+    
+# function to calculate the the LODR score for a specific pair of structures,
+# for a specific residue    
+def eelocal(x,y,resnum):
+    # set the superimposer
+    sup = SVDSuperimposer()
+    # lists of atoms, ref = fixed atoms, alt = moving atoms
+    ref_atoms = []
+    alt_atoms = []
+    
+    
+    # this try statement will fail at any chain breaks as the atoms won't exist
+    # if debugging, removing this is a good place to start
+        # if you do, tell it to skip the first and last residue manually
+    try:
+        # get atoms
+        ref_atoms.append(structure[x]["A"][resnum - 1]["CA"])
+        ref_atoms.append(structure[x]["A"][resnum - 1]["C"])
+        ref_atoms.append(structure[x]["A"][resnum - 1]["O"])
+        ref_atoms.append(structure[x]["A"][resnum]["N"])
+        ref_atoms.append(structure[x]["A"][resnum]["CA"])
+        
+        alt_atoms.append(structure[y]["A"][resnum - 1]["CA"])
+        alt_atoms.append(structure[y]["A"][resnum - 1]["C"])
+        alt_atoms.append(structure[y]["A"][resnum - 1]["O"])
+        alt_atoms.append(structure[y]["A"][resnum]["N"])
+        alt_atoms.append(structure[y]["A"][resnum]["CA"])   
+
+
+        # get the coords for each atom in the atom lists
+        l=len(ref_atoms) 
+        ref_atoms_coord=np.zeros((l, 3)) 
+        alt_atoms_coord=np.zeros((l, 3)) 
+        for i in range(0, len(ref_atoms)): 
+            ref_atoms_coord[i]=ref_atoms[i].get_coord() 
+            alt_atoms_coord[i]=alt_atoms[i].get_coord()
+        
+        
+        # superimpose the coords, and then get the rotation matrix and
+        # translation
+        sup.set(ref_atoms_coord, alt_atoms_coord)
+        sup.run()
+        rot, tran = sup.get_rotran()
+
+
+        # lists of atoms to get the LODR scores for
+        atoms_x = []
+        atoms_y = []
+        
+        atoms_x.append(structure[x]["A"][resnum]["C"])
+        atoms_x.append(structure[x]["A"][resnum]["O"])
+        atoms_x.append(structure[x]["A"][resnum + 1]["N"])
+        atoms_x.append(structure[x]["A"][resnum + 1]["CA"])
+        
+        
+        atoms_y.append(structure[y]["A"][resnum]["C"])
+        atoms_y.append(structure[y]["A"][resnum]["O"])
+        atoms_y.append(structure[y]["A"][resnum + 1]["N"])
+        atoms_y.append(structure[y]["A"][resnum + 1]["CA"])
+        
+        
+        # get coords
+        l=len(atoms_x) 
+        atoms_x_coord=np.zeros((l, 3)) 
+        atoms_y_coord=np.zeros((l, 3)) 
+        for i in range(0, len(atoms_x)): 
+            atoms_x_coord[i]=atoms_x[i].get_coord() 
+            atoms_y_coord[i]=atoms_y[i].get_coord()
+        
+                
+        # make sure the types are correct, this is straight from the
+        # Bio source code
+        rot=rot.astype('f')
+        tran=tran.astype('f')
+
+        # list of transformed moving atoms
+        trans_atom_y_coord = []
+        # transform each atom
+        for atom in atoms_y_coord:
+            trans_atom = np.dot(atom, rot) + tran
+            trans_atom_y_coord.append(trans_atom)
+        
+        
+        # these four distances
+        dist_c = get_dist(trans_atom_y_coord[0],atoms_x_coord[0])
+        dist_o = get_dist(trans_atom_y_coord[1],atoms_x_coord[1])
+        dist_n = get_dist(trans_atom_y_coord[2],atoms_x_coord[2])
+        dist_ca = get_dist(trans_atom_y_coord[3],atoms_x_coord[3])
+        
+                
+        #calculate rmsd of the distance for this residue
+        dists2 = list()        
+        dists2.append(dist_c*dist_c)
+        dists2.append(dist_o*dist_o)
+        dists2.append(dist_n*dist_n)
+        dists2.append(dist_ca*dist_ca)
+        d2sum = sum(dists2)
+        x = d2sum / 4
+        lodr = math.sqrt(x)        
+        
+        #done
+        return lodr
+        
+        
+    # return Nonetype if any of these atoms cannot be accessed  
+    except:
+        return
+
+# function fo calculate rmsd for a dictionary, will return the same key but
+# only one value (the rmsd)
+def get_rmsd(atom_dist_dict):
+    
+    rmsd_dict = {}
+    
+    for key in atom_dist_dict:
+        try:
+            #calculate rmsd
+            dists2 = list()
+            for dist in atom_dist_dict[key]:
+                dists2.append(dist*dist)
+            d2sum = sum(dists2)
+            x = d2sum / len(atom_dist_dict[key])
+            rmsd = math.sqrt(x)
+            rmsd_dict[key] = rmsd            
+            
+        # this exception here for the lodr scores, which will have some
+        # Nonetype values which can't be turned into a RMS
+        except:
+            rmsd_dict[key] = None
+    
+    return rmsd_dict
+    
+# same as above basically but for getting the mean    
+def get_mean(atom_dist_dict):
+    
+    mean_dict = {}
+    
+    for key in atom_dist_dict:
+        try:
+            avg = np.mean(atom_dist_dict[key])
+            mean_dict[key] = avg   
+        except:
+            mean_dict[key] = None
+    return mean_dict
+
+
+# function to get both the minimum value in a dict[key], and the index from
+# that list that gave the min        
+def get_min(atom_dist_dict):
+    # nested dict that has these two things in it
+    min_info_dict = NestedDict()
+    min_dict = {}
+    index_dict = {}
+    for entry in atom_dist_dict:
+        # this will actually store the minimum and the index of
+        # the minimum as tmp
+        tmp = min(enumerate(atom_dist_dict[entry]), key=itemgetter(1))
+        min_dict[entry] = tmp[1]
+        index_dict[entry] = tmp[0] 
+    min_info_dict["min"] = min_dict
+    min_info_dict["index"] = index_dict         
+    # resturns the nested dict of the min info
+    return min_info_dict      
+
+# this is the final alignment funtion, which will align all models to the
+# first model, using only the common consensus core atoms
+def final_aligner(outputname, atoms_to_ignore):
+    # first model
+    ref_model = structure[0]    
+    
+    # every other model
+    for alt_model in structure:
+        all_atom_counter = 0
+        counter = 0
+        ref_atoms = []
+        alt_atoms = []
+        
+        # honestly, this looping structure is probably a little
+        # obsolete now that I have the chain always set to 'A'
+        for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
+            for ref_res, alt_res in zip(ref_chain, alt_chain) :
+                resid = ref_res.id[1]
+                for atom in ref_res:                
+                    atomid = atom.id
+                    atom_deets = [resid,atomid]                    
+                    # if this atom and residue is in the list of non-core
+                    # atoms, do nothing
+                    if atom_deets in atoms_to_ignore:
+                        pass
+                    # otherwise, add it to the list of atoms to use during
+                    # alignment
+                    else:
+                        ref_atoms.append(ref_res[atom.id])                                       
+                for atom in alt_res:
+                    atomid = atom.id
+                    atom_deets = [resid,atomid]
+                    # counts all atoms
+                    all_atom_counter += 1                    
+                    if atom_deets in atoms_to_ignore:
+                        pass
+                    else:
+                        # counts only the atoms included in the core
+                        counter += 1
+                        alt_atoms.append(alt_res[atom.id])
+                        
+        #Align these paired atom lists:
+        super_imposer = Superimposer()
+        
+        # exit if all atoms are flagged for removal
+        # (ie. if the sets of atoms to superimpose are empty)
+        try:
+            super_imposer.set_atoms(ref_atoms, alt_atoms)
+        except:
+            print "\n\n\nCould not superimpose final overlay."
+            print("There are no consensus atoms at this cutoff distance that "
+                  "are common to all structures!!!\nPlease try again"
+                  " with a less strict dcut value.\n\n\n"
+                  "ANY eeGLOBAL RESULTS WILL NOT BE ACCURATE UNTIL A "
+                  "LESS STRICT DISTANCE CUTOFF IS USED.\n\n\n"
+                  )
+            return True
+        
+        # pretty pointless I suspect    
+        if ref_model.id == alt_model.id :
+            #Check for self/self get zero RMS, zero translation
+            #and identity matrix for the rotation.
+            assert \
+            np.abs(super_imposer.rms) < 0.0000001
+            assert \
+            np.max(np.abs(super_imposer.rotran[1])) < 0.000001
+            assert \
+            np.max(np.abs(super_imposer.rotran[0]) - np.identity(3)) < 0.000001
+        else :
+            #Update the structure by moving all the atoms in
+            #this model (not just the ones used for the alignment)
+            super_imposer.apply(alt_model.get_atoms())
+        print("RMS(model %i, model %i) = %0.2f (Used %i out of %i atoms to "
+              "align structures.)" % (ref_model.id,
+                                      alt_model.id,
+                                      super_imposer.rms,
+                                      counter,
+                                      all_atom_counter
+                                      )
+              )
+        
+        log.write("RMS(model %i, model %i) = %0.2f (Used %i out of %i atoms "
+                  "to align structures.)\n" % (ref_model.id,
+                                               alt_model.id,
+                                               super_imposer.rms,
+                                               counter,
+                                               all_atom_counter
+                                               )
+                  )
+
+    # save the final structure
+    io=Bio.PDB.PDBIO()
+    io.set_structure(structure)
+    io.save(outputname)
+
+    # fix the pdb file format, otherwise all the models are teated as
+    # seperate objects by pymol rather than seperate models
+    filein = open(outputname, 'r')
+    os.remove(outputname)
+    fileout = open(outputname, 'w')
+    
+    counter = 0
+    for line in filein:
+        if line[0:3] == 'END' and line[0:6] != 'ENDMDL':
+            pass
+        
+        # Ensures that the final model numbers in the overlayed file match
+        # the legend output by prepare_input
+        # this is a critical function
+        # otherwise the user will have no way to link the final overlay and
+        # statistics back to the original files
+            
+        elif line[0:6] == 'MODEL':
+            modeltag = str(counter)
+            while len(modeltag) < 9:
+                modeltag = " " + modeltag
+            if len(modeltag) == 9:
+                modeltag = "MODEL" + modeltag + "\n" 
+            # write model line
+            outfile.write(modeltag)
+            counter += 1
+        else:
+            fileout.write(line)
+    
+    fileout.write("END")
+    fileout.close()
+    filein.close()
+    return False
+    
+# This is the alignment that will run first when doing the iterative pairwise
+# alignments.  This differs from the other aligners in that it will not bother
+# to check for core atoms it will just use all atoms to create a pairwise
+# alignment.
+def first_aligner(x,y):
+   
+    # this should be pretty obvious by now
+    ref_model = structure[x]    
+    alt_model = structure[y]
+    
+    all_atom_counter = 0
+    counter = 0
+    ref_atoms = []
+    alt_atoms = []
+    for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
+        for ref_res, alt_res in zip(ref_chain, alt_chain) :
+            resid = ref_res.id[1]
+            # include all atoms (ie. there are no testing criterea here)
+            for atom in ref_res:                
+                ref_atoms.append(ref_res[atom.id])                                   
+            for atom in alt_res:
+                # these counters are both here just for the purpose of nice
+                # output, could be replace by one counter
+                    # but I am too lazy to do it when it works just fine as is
+                all_atom_counter += 1
+                counter += 1
+                alt_atoms.append(alt_res[atom.id])
+                    
+    #Align these paired atom lists:
+    super_imposer = Superimposer()
+    # exit if all atoms are flagged for removal (ie. if the sets of atoms
+    # to superimpose are empty)
+    try:
+        super_imposer.set_atoms(ref_atoms, alt_atoms)
+    except:
+        print( "Initial alignment of model " +
+                str(x) +
+                " and model " +
+                str(y) +
+                " failed. Possibly there are no atoms here."
+               )
+        log.write(
+                "Initial alignment of model " +
+                str(x) +
+                " and model " +
+                str(y) +
+                " failed. Possibly there are no atoms here.\n"
+                )
+        return
+        
+    if ref_model.id == alt_model.id :
+        #Check for self/self get zero RMS, zero translation
+        #and identity matrix for the rotation.
+        assert np.abs(super_imposer.rms) < 0.0000001
+        assert np.max(np.abs(super_imposer.rotran[1])) < 0.000001
+        assert np.max(np.abs(super_imposer.rotran[0]) - np.identity(3)) \
+               < 0.000001
+    else :
+        #Update the structure by moving all the atoms in
+        #this model (not just the ones used for the alignment)
+        super_imposer.apply(alt_model.get_atoms())
+    log.write("RMS(model %i, model %i) = %0.2f (Used %i out of %i atoms to "
+              "align structures.)\n" % (ref_model.id,
+                                        alt_model.id,
+                                        super_imposer.rms,
+                                        counter,
+                                        all_atom_counter
+                                        )
+              )
+
+    # The alignment does not need to return anything, as it's primary function
+    # is just to update the coordinates of model y in the pair
+
+
+
+# calculates distance per atom for a pair
+def per_atom_distance(x,y):
+    ref_model = structure[x]    
+    alt_model = structure[y]
+    distance_dict = {}
+
+    for chain in ref_model:
+        for res in chain:
+            for atom in res:
+                # distances can be calculated in BioPython using the subtract
+                # function
+                distance = structure[x][chain.id][res.id[1]][atom.id] - \
+                           structure[y][chain.id][res.id[1]][atom.id]
+
+                # this id_string will be the key, a string with resnum and
+                # atomtype connected by a : for easy splitting later
+                # this ensures that all equivalent atoms will have the same
+                # key, and thus can be compared by the dictionaries
+                
+                id_string = str(res.id[1]) + ":" + str(atom.id)
+                distance_dict[id_string] = distance
+                
+    # return a dictionary of the atom distances
+    return distance_dict
+                
+                    
+# this is the pairwise aligner, which will be called again and again until
+# convergence is reached.
+def pairwise_realigner(x,y, atoms_to_ignore):
+   
+    ref_model = structure[x]    
+    alt_model = structure[y]
+    all_atom_counter = 0
+    counter = 0
+    ref_atoms = []
+    alt_atoms = []
+    
+    for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
+        for ref_res, alt_res in zip(ref_chain, alt_chain) :
+            resid = ref_res.id[1]
+            for atom in ref_res:                
+                atomid = atom.id
+                atom_deets = [resid,atomid]
+                # just like in final_aligner, ignores atoms in the list of
+                # atoms to ignore
+                if atom_deets in atoms_to_ignore:
+                    pass
+                else:
+                    ref_atoms.append(ref_res[atom.id])   
+            for atom in alt_res:
+                atomid = atom.id
+                atom_deets = [resid,atomid]
+                all_atom_counter += 1              
+                if atom_deets in atoms_to_ignore:
+                    pass
+                else:
+                    counter += 1
+                    alt_atoms.append(alt_res[atom.id])
+                    
+    #Align these paired atom lists:
+    super_imposer = Superimposer()
+    # exit if all atoms are flagged for removal (ie. if the sets of atoms to
+    # superimpose are empty)
+    try:
+        super_imposer.set_atoms(ref_atoms, alt_atoms)
+    except:
+        print("There are no consensus atoms at this cutoff distance that are "
+              "common to model %i and %i.\nExiting... Please try again with "
+              "a less strict dcut value." % (ref_model.id,
+                                             alt_model.id
+                                             )
+              )
+        log.write("There are no consensus atoms at this cutoff distance that "
+                  "are common to model %i and %i.\nExiting... Please try "
+                  "again with a less strict dcut value.\n" % (ref_model.id,
+                                                               alt_model.id
+                                                               )
+                  )
+        return
+        
+    if ref_model.id == alt_model.id :
+        #Check for self/self get zero RMS, zero translation
+        #and identity matrix for the rotation.
+        assert np.abs(super_imposer.rms) < 0.0000001
+        assert np.max(np.abs(super_imposer.rotran[1])) < 0.000001
+        assert np.max(np.abs(super_imposer.rotran[0]) - np.identity(3)) \
+               < 0.000001
+    else :
+        #Update the structure by moving all the atoms in
+        #this model (not just the ones used for the alignment)
+        super_imposer.apply(alt_model.get_atoms())
+    log.write("RMS(model %i, model %i) = %0.2f (Used %i out of %i atoms to "
+              "align structures.)\n" % (
+                                       ref_model.id,
+                                       alt_model.id,
+                                       super_imposer.rms,
+                                       counter,
+                                       all_atom_counter
+                                       )
+               )
+
+
+    # again, does not need to return anything. It is enough to update the
+    # coords of model y each time based on the new alignment
+
+# this function calculates the rmsd of the atoms in the core, for any given
+# pair of models
+# structure is VERY similar to the aligner functions
+def get_rms_sub(x,y, atoms_to_ignore):
+    ref_model = structure[x]    
+    alt_model = structure[y]
+    ref_atoms = []
+    alt_atoms = []
+    
+    for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
+        for ref_res, alt_res in zip(ref_chain, alt_chain) :
+            resid = ref_res.id[1]
+            
+            for atom in ref_res:                
+                atomid = atom.id
+                atom_deets = [resid,atomid]
+                if atom_deets in atoms_to_ignore:
+                    pass
+                else:
+                    # SVDSuperimposer only works with np.array of the coords
+                    # of the atoms
+                    # normally Superimposer just gets this itself, here we
+                    # have to do it for the atoms manually.
+                    ref_atoms.append(atom.coord)                
+            for atom in alt_res:
+                atomid = atom.id
+                atom_deets = [resid,atomid]
+                if atom_deets in atoms_to_ignore:
+                    pass
+                else:
+                    alt_atoms.append(atom.coord)
+    # actually uses the superimposer SVDsuperimposer which is internal to the
+    # Superimposer() function                
+    sup = SVDSuperimposer()
+    # has to deal directly with the coords, nothing else
+    coord1 = np.array(ref_atoms)
+    coord2 = np.array(alt_atoms)
+    
+    # exit if all atoms are flagged for removal (ie. if the sets of atoms to
+    # superimpose are empty)
+    try:
+        # internal code to calculate rms, not reccomended for users
+            # you don't know me
+        rms_sub = sup._rms(coord1, coord2)
+    except:
+        # this elegent error message needs to be reworked when I rewrite all
+        # the log write statements.
+        print "RMS GET FAIL"
+        return
+
+    # return the rmsd of the core atoms for this pair
+    return rms_sub
+
+
+# exactly as above, only it will do so for all atoms
+def get_rms_all(x,y):
+    
+
+    ref_model = structure[x]    
+    alt_model = structure[y]
+
+    ref_atoms = []
+    alt_atoms = []
+    
+    for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
+        for ref_res, alt_res in zip(ref_chain, alt_chain) :
+            for atom in ref_res:
+                ref_atoms.append(atom.coord)                
+            for atom in alt_res:
+                alt_atoms.append(atom.coord)
+    sup = SVDSuperimposer()
+    coord1 = np.array(ref_atoms)
+    coord2 = np.array(alt_atoms)
+    
+    # exit if all atoms are flagged for removal (ie. if the sets of atoms to
+    # superimpose are empty)
+    try:
+        rms_all = sup._rms(coord1, coord2)
+    except:
+        print "RMS GET FAIL"
+        return
+
+    return rms_all
+
+# function that for a given pair, will create a list of all atoms that are
+# beyond the dcut value away from each other
+def dcut_atom_checker(x,y):
+    
+    atoms_to_ignore = list()
+    for chain in structure[x]:
+        for res in chain:
+            for atom in res:                                             
+                atom1 = structure[x][chain.id][res.id[1]][atom.id]
+                atom2 = structure[y][chain.id][res.id[1]][atom.id]
+                distance = atom1 - atom2
+                if distance < dcut:
+                    pass
+                else:
+                    atom_deets = [res.id[1],atom.id]
+                    atoms_to_ignore.append(atom_deets)    
+    return atoms_to_ignore
+    
+# this function works similarly to eePrep in the prepare_input script.
+# it will take the list of atoms to ignore, and get only the unique entries,
+# ie, not duplicates. It will return a list of lists that contain [resnum,
+# atomtype]
+def atom_selector(atoms_to_ignore):
+
+    remove_residues_unformatted = []
+    for key in atoms_to_ignore:
+        for atom in atoms_to_ignore[key]:
+            # it has to be a string that gets appended, in order to be
+            # hashable, in order to ensure that only unique values are kept
+            remove_residues_unformatted.append(
+                                                str(atom[0]) +
+                                                "@" +
+                                                str(atom[1])
+                                                )
+    remove_residues_unformatted = set(remove_residues_unformatted)
+    remove_residues_unformatted = list(remove_residues_unformatted)
+    
+    # now we seperate the string and turn it back into a useful list
+    remove_residues = []
+    for atom in remove_residues_unformatted:
+        resid = int(atom.split("@")[0])
+        atomid = atom.split("@")[1]
+        remove_residues.append([resid,atomid])
+         
+    return remove_residues
+            
+###############################################################################            
+###############################################################################            
+###############################################################################            
+###############################################################################            
+###############################################################################            
+# Here the functions end, 'real' code begins:
+
+# mark start time
+startTime = time.time()        
+
+# read in the input
+pdb = options.input
+dcut = options.dcut
+pdb_reader = PDBParser(PERMISSIVE = 1, QUIET = True)
+outputname = "global_overlay_" + str(dcut) + ".pdb"
+# use this in the auto analysis, cluster_sep - this is a lazy solution
+outputname_all_overlay = "global_overlay_" + str(dcut) + ".pdb"
+# this structure variable is constantly referenced by functions.
+# Do not mess around with it lightly.
+structure = pdb_reader.get_structure("temp", pdb) 
+
+print("Iterativly aligning pairwise structures until convergence of cutoff "
+      "accepted atoms is reached..."
+      )
+log.write("Iterativly aligning pairwise structures until convergence of "
+          "cutoff accepted atoms is reached...\n"
+          )
+
+
+# first output file, contains info about all the pairs. Used for clustering
+# in the --auto analysis
+pairwise_file = open("pairwise_analysis.tsv", 'w')
+pairwise_file.write("model_X\tmodel_Y\tatoms_removed\trms_all\trms_subset\n")
+
+    
+# take each pairwise alignment and realign until dcut satisfied atoms converge
+
+# get the list of models to generate the pairs
+model_list = list()
+for model in structure:
+    model_list.append(model.id)
+
+atoms_to_ignore = {}
+# list of all pairs
+pairwise_list = combinations(model_list, r = 2)
+# iterate accross each pair in order, ignoring duplicates and self pairs
+# (they aren't in the pairwise list)
+for x,y in pairwise_list:
+    # just any random starting condition. I don't think this is really needed
+    # but hey.
+    atoms = 1
+    atoms2 = 500
+    counter = 0
+           
+    log.write(
+                "Re-running alignment with cutoff distance of " +
+                str(dcut) +
+                " on models " +
+                str(x) +
+                " and " +
+                str(y) +
+                ":\n"
+                )   
+    # do first alignment of the pair, using all atoms
+    first_aligner(x,y) 
+    # will realign over and over until the list of kept atoms are exactly
+    # identical before and after overlay
+    while atoms != atoms2:
+        counter += 1
+        # do first dcut check
+        atoms = dcut_atom_checker(x,y)
+        # here the key in atoms_to_ignore is a unique string for each pair,  
+        atoms_to_ignore[str(x) + "," + str(y)] = atoms
+        if atoms == 0:
+            # this would mean that the cutoff is too strict
+            print "No atoms converge at cutoff."
+            break
+        # re-align with only core atoms, giving the pairwise aligner the same
+        # list of atoms to ignore that is specific to this pair
+        pairwise_realigner(x,y, atoms_to_ignore[str(x) + "," + str(y)])    
+        # now the atoms that pass the check are here in atoms2, and if they
+        # aren't all identical to atoms, then the loop will repeat
+        atoms2 = dcut_atom_checker(x,y)
+        
+    log.write(
+                "Convergence reached in " +
+                str(counter) +
+                " alignments, with " +
+                str(len(atoms2)) +
+                " atoms past cutoff distance.\n"
+                )
+
+    # now that a convergent core is found, calculate the stats for this pair
+    rms_sub = get_rms_sub(x,y,atoms_to_ignore[str(x) + "," + str(y)])
+    rms_all = get_rms_all(x,y)
+             
+    # output information to table, tab separated
+    pairwise_file.write(
+                        str(x) +
+                        "\t" +
+                        str(y) +
+                        "\t" +
+                        str(len(atoms2))+
+                        "\t" +
+                        str(rms_all) +
+                        "\t" +
+                        str(rms_sub) +
+                        "\n"
+                        )
+
+log.write("Done.\n")
+
+# self-self pairs, needed to get a complete array later
+# all these stats should be zero
+for modelid in model_list:
+    # include all self-self pairs in the output table to make matrix
+    # generation more complete if one desires
+    pairwise_file.write(
+                        str(modelid) +
+                        "\t" +
+                        str(modelid) +
+                        "\t" +
+                        str(0)+
+                        "\t" +
+                        str(0)+
+                        "\t" +
+                        str(0) +
+                        "\n"
+                        )
+
+# generate common-core aligned file
+print("Identifying common convergant atoms in all pairwise structures, and "
+      "realigning original ensemble using only common cutoff accepted atoms..."
+      )
+log.write("Identifying common convergant atoms in all pairwise structures, "
+          "and realigning original ensemble using only common cutoff accepted "
+          "atoms...\n"
+          )
+# get the common elements from the dict of all atoms to ignore from all
+# structures
+removal_list = atom_selector(atoms_to_ignore)
+counter = 0
+for atom in removal_list:
+    counter += 1
+print(str(counter) +
+      " non-consensus atoms removed from final aligner process."
+      )
+log.write(str(counter) +
+          " non-consensus atoms removed from final aligner process.\n"
+          )
+
+# now re-align the original structure, against the first model, using only the
+# COMMON core atoms atoms
+# will be true if there are no common core atoms
+error_check = final_aligner(outputname, removal_list)
+
+if error_check != True:
+    print("Wrote final overlay as: " + outputname)
+    log.write("Wrote final overlay as: " + outputname + "\n")
+
+
+print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
+      "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
+      )
+pairwise_file.close()
+
+# this is all the eeGlobal and eeLocal stuff that will run if the m and n
+# group are set manually
+if options.auto == False:
+    # NOW DOING eeGLOBAL stuff
+    # calulate RMS level of intra-ensemble variation for each atom among
+    # m structures
+    print "Calculating Intra Group M RMSD:"
+    pairwise_list = combinations(options.groupm, r = 2)
+    all_dist_dict = {}
+
+    # for each pair of models in group m
+    for x,y in pairwise_list:
+        # get the distances per atom
+        distance_dict = per_atom_distance(x,y)
+        for key in distance_dict:
+            # append the value to a list of pairwise distances, by atom
+            if key in all_dist_dict:
+                all_dist_dict[key].append(distance_dict[key])
+            else:
+                all_dist_dict[key] = list()
+                all_dist_dict[key].append(distance_dict[key])
+    
+    # get either the avg or the rmsd of these values
+    if options.avg == False:
+        group_m_rmsd = get_rmsd(all_dist_dict)
+    else:
+        group_m_rmsd = get_mean(all_dist_dict)
+    
+    # try statement here is so that it will except if there is only a group M
+    # defined    
+    # calulate RMS level of intra-ensemble variation for each atom among n
+    # structures
+    try:
+        # same as group m    
+        pairwise_list = combinations(options.groupn, r = 2)
+        all_dist_dict = {}
+        print "Calculating Intra Group N RMSD:"
+        for x,y in pairwise_list:
+            distance_dict = per_atom_distance(x,y)
+            for key in distance_dict:
+                if key in all_dist_dict:
+                    all_dist_dict[key].append(distance_dict[key])
+                else:
+                    all_dist_dict[key] = list()
+                    all_dist_dict[key].append(distance_dict[key])
+        if options.avg == False:
+            group_n_rmsd = get_rmsd(all_dist_dict)
+        else:
+            group_n_rmsd = get_mean(all_dist_dict)
+        
+        # calulate RMS level of inter-ensemble variation for each atom
+        # between m and n structures
+        # same as group m and n, but will be done on the pairs that are m-n
+        print "Calculating Inter Group RMSD:"
+        inter_list = [x for x in itertools.product(
+                                                    options.groupm,
+                                                    options.groupn
+                                                    )
+                      ]
+        
+        all_dist_dict = {}
+        for x,y in inter_list:
+            distance_dict = per_atom_distance(x,y)
+            for key in distance_dict:
+                if key in all_dist_dict:
+                    pass
+                else:
+                    all_dist_dict[key] = list()                
+                all_dist_dict[key].append(distance_dict[key])    
+        if options.avg == False:
+            inter_rmsd = get_rmsd(all_dist_dict)
+        else:
+            inter_rmsd = get_mean(all_dist_dict)
+        
+        print "Calculating Closest Approach Distance:"    
+        # now get the closest approach info
+        closest_approach_info = get_min(all_dist_dict)
+        closest_approach_index =  closest_approach_info["index"]
+        closest_approach = closest_approach_info["min"]
+
+    except:
+        pass
+
+    ### combine them all into a well formatted dictionary for ease of access
+    eeglobal_dict = NestedDict()
+    for key in group_m_rmsd:
+        # remember the key format is "resid:atomtype"
+        resid = int(key.split(":")[0])
+        atomid = key.split(":")[1]
+        eeglobal_dict\
+                       ["group_m_rmsd"]\
+                       [resid]\
+                       [atomid]\
+                       = group_m_rmsd[key]
+        try:
+            eeglobal_dict\
+                           ["group_n_rmsd"]\
+                           [resid]\
+                           [atomid]\
+                           = group_n_rmsd[key]
+            eeglobal_dict\
+                           ["inter_group_rmsd"]\
+                           [resid]\
+                           [atomid]\
+                           = inter_rmsd[key]
+            eeglobal_dict\
+                           ["closest_approach"]\
+                           [resid]\
+                           [atomid]\
+                           = closest_approach[key]
+            eeglobal_dict\
+                           ["closest_approach_index"]\
+                           [resid]\
+                           [atomid]\
+                           = str(inter_list[closest_approach_index[key]])
+        except:
+            pass
+
+    # sort them for nicer output
+    # this ensures that the lists/tables are in a nicer order for humans
+    # this is used later for looping, so it's needed
+    resid_list = []     
+    for key in eeglobal_dict["group_m_rmsd"]:
+        resid_list.append(key)
+    resid_list = set(resid_list)
+    resid_list = list(sorted(resid_list))
+
+    atomid_list = []     
+    for resid in eeglobal_dict["group_m_rmsd"]:
+        for key in eeglobal_dict["group_m_rmsd"][resid]:
+            atomid_list.append(key)
+    atomid_list = set(atomid_list)
+    atomid_list = list(sorted(atomid_list))
+
+
+
+    #### eeLocal calculations
+    # skip if true
+    # all methods here are as above, only they only use resnum as keys,
+    # so are less complicated
+    # they also calculate lodr rather than rmsd, etc
+    
+    if options.skiplocal == False:
+        print "Calculating LODR scores for group M:"
+        pairwise_list = combinations(options.groupm, r = 2)
+        all_lodr_dict = {}
+        lodr_dict = {}
+
+        for x,y in pairwise_list:
+            for resnum in resid_list:        
+                lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                      
+                if resnum in all_lodr_dict:
+                    all_lodr_dict[resnum].append(lodr_dict[resnum])
+                else:
+                    all_lodr_dict[resnum] = list()
+                    all_lodr_dict[resnum].append(lodr_dict[resnum])
+                    
+        if options.avg == False:            
+            group_m_lodr = get_rmsd(all_lodr_dict)
+        else:
+            group_m_lodr = get_mean(all_lodr_dict)    
+                
+        ### calulate LODR among n structures
+        try:
+            pairwise_list = combinations(options.groupn, r = 2)
+            print "Calculating LODR scores for group N:"
+            all_lodr_dict = {}
+            lodr_dict = {}
+
+            for x,y in pairwise_list:
+                for resnum in resid_list:        
+                    lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                          
+                    if resnum in all_lodr_dict:
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        all_lodr_dict[resnum] = list()
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+            
+            if options.avg == False:            
+                group_n_lodr = get_rmsd(all_lodr_dict)
+            else:
+                group_n_lodr = get_mean(all_lodr_dict)
+            ### calulate LODR between m and n structures
+            print "Calculating Inter Group LODR:"
+
+            inter_list = [x for x in itertools.product(
+                                                        options.groupm,
+                                                        options.groupn
+                                                        )
+                          ]
+          
+            all_lodr_dict = {}
+            lodr_dict = {}
+            for x,y in inter_list:
+                for resnum in resid_list:        
+                    lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                          
+                    if resnum in all_lodr_dict:
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        all_lodr_dict[resnum] = list()
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+            if options.avg == False:
+                inter_group_lodr = get_rmsd(all_lodr_dict)
+            else:
+                inter_group_lodr = get_mean(all_lodr_dict) 
+                      
+            print "Calculating Minimum LODR between M and N at each residue:"
+            
+            minimum_lodr_info = get_min(all_lodr_dict)
+            minimum_lodr_index =  minimum_lodr_info["index"]
+            minimum_lodr = minimum_lodr_info["min"]
+
+        except:
+            pass
+
+
+        # same as eeGlobal
+        eelocal_dict = NestedDict()
+        for resid in resid_list:
+            try:
+                eelocal_dict\
+                              ["group_m_lodr"]\
+                              [resid]\
+                              = group_m_lodr[resid]
+                try:
+                    eelocal_dict\
+                                  ["group_n_lodr"]\
+                                  [resid]\
+                                  = group_n_lodr[resid]
+                    eelocal_dict\
+                                  ["inter_group_lodr"]\
+                                  [resid]\
+                                  = inter_group_lodr[resid]
+                    eelocal_dict\
+                                  ["minimum_lodr"]\
+                                  [resid]\
+                                  = minimum_lodr[resid]
+                    eelocal_dict\
+                                  ["minimum_lodr_index"]\
+                                  [resid]\
+                                  = str(inter_list[minimum_lodr_index[resid]])
+                except:
+                    pass
+            except:
+                pass
+
+
+    # print all the output tables
+    print "Organizing output, and saving files:"
+
+    # output tables
+    eeglobal_out = open("eeGlobal_out.tsv", 'w')
+
+    # header
+    eeglobal_out.write("res_id" +
+                       "\t" +
+                       "atom_id" +
+                       "\t" +
+                       "intra_m_rmsd" +
+                       "\t" +
+                       "intra_n_rmsd" +
+                       "\t" +
+                       "inter_group_rmsd" +
+                       "\t" +
+                       "closest_approach" +
+                       "\t" +
+                       "closest_approach_pair" +
+                       "\t" +
+                       "included_in_core" +
+                       "\n"
+                       )
+    for resid in resid_list:
+        for atomid in atomid_list:
+            # if the atom exists at this residue
+            if atomid in eeglobal_dict["group_m_rmsd"][resid]:
+                # if there is another group, otherwise print NA in
+                # those columns
+                if "group_n_rmsd" in eeglobal_dict:
+                    # if the atom is in the core or was removed
+                    if [int(resid), atomid] in removal_list:
+                        eeglobal_out.write(str(resid) +
+                                           "\t" +
+                                           str(atomid) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["group_m_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["group_n_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["inter_group_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["closest_approach"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["closest_approach_index"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           "False" +
+                                           "\n"
+                                           )
+                    else:
+                        eeglobal_out.write(str(resid) +
+                                           "\t" +
+                                           str(atomid) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["group_m_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["group_n_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["inter_group_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["closest_approach"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["closest_approach_index"]
+                                               [resid]
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           "True" +
+                                           "\n"
+                                           )
+                else:
+                    if [int(resid), atomid] in removal_list:
+                        eeglobal_out.write(str(resid) +
+                                           "\t" +
+                                           str(atomid) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["group_m_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "False" +
+                                           "\n"
+                                           )
+                    else:
+                        eeglobal_out.write(str(resid) +
+                                           "\t" +
+                                           str(atomid) +
+                                           "\t" +
+                                           str(eeglobal_dict\
+                                               ["group_m_rmsd"]\
+                                               [resid]\
+                                               [atomid]
+                                               ) +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "NA" +
+                                           "\t" +
+                                           "True" +
+                                           "\n"
+                                           )        
+            else:
+                pass
+    eeglobal_out.close()
+    print "Output saved in file 'eeGlobal_out.tsv'."
+
+    # print out the eeLocal output
+    if options.skiplocal == False:
+        eelocal_out = open("eeLocal_out.tsv", 'w')
+        eelocal_out.write("res_id"
+                          "\t"
+                          "intra_m_rms_lodr"
+                          "\t"
+                          "intra_n_rms_lodr"
+                          "\t"
+                          "inter_group_rms_lodr"
+                          "\t"
+                          "minimum_lodr"
+                          "\t"
+                          "mimimum_lodr_pair"
+                          "\n"
+                          )
+        for resid in resid_list:
+            if "group_n_lodr" in eelocal_dict:
+                eelocal_out.write(str(resid) +
+                                  "\t" +
+                                  str(eelocal_dict["group_m_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict["group_n_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict\
+                                      ["inter_group_lodr"]\
+                                      [resid]
+                                      ) +
+                                  "\t" +
+                                  str(eelocal_dict["minimum_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict\
+                                      ["minimum_lodr_index"]\
+                                      [resid]
+                                      ) +
+                                  "\n"
+                                  )
+            else:
+                eelocal_out.write(str(resid) +
+                                  "\t" +
+                                  str(eelocal_dict["group_m_lodr"][resid]) +
+                                  "\t" +
+                                  "NA" +
+                                  "\t" +
+                                  "NA" +
+                                  "\t" +
+                                  "NA" +
+                                  "\t" +
+                                  "NA" +
+                                  "\n"
+                                  )
+        eelocal_out.close()
+        print "Output saved in file 'eeLocal_out.tsv'."
+
+    ### PLOTTING ###
+    # don't know what this does
+    minorLocator = MultipleLocator(1)
+    # colors
+    red = '#e41a1c'
+    blue = '#377eb8'
+    green = '#4daf4a'
+    purple = '#984ea3'
+    yellow = '#ffff33'
+
+    print "Plotting eeGlobal:"
+    ## eeGlobal plot
+    # we are jsut interested in showing the average backbone rmsd here
+    backbone_intra_m_rmsd = {}
+    for resid in range(min(resid_list),(max(resid_list)+1)):
+        rmsds = []
+        for atomid in atomid_list:
+            if atomid == "N" or \
+                       atomid == "CA" or \
+                       atomid == "C" or \
+                       atomid == "O":
+                rmsds.append(eeglobal_dict["group_m_rmsd"][resid][atomid])
+        try:
+            backbone_intra_m_rmsd[resid] = np.mean(rmsds)
+        except:
+            backbone_intra_m_rmsd[resid] = None
+
+    try:
+        backbone_intra_n_rmsd = {}
+        for resid in range(min(resid_list),(max(resid_list)+1)):
+            rmsds = []
+            for atomid in atomid_list:
+                if atomid == "N" or \
+                           atomid == "CA" or \
+                           atomid == "C" or \
+                           atomid == "O":
+                    rmsds.append(eeglobal_dict["group_n_rmsd"][resid][atomid])
+            try:
+                backbone_intra_n_rmsd[resid] = np.mean(rmsds)
+            except:
+                backbone_intra_n_rmsd[resid] = None
+                    
+        backbone_inter_rmsd = {}
+        for resid in range(min(resid_list),(max(resid_list)+1)):
+            rmsds = []
+            for atomid in atomid_list:
+                if atomid == "N" or \
+                           atomid == "CA" or \
+                           atomid == "C" or \
+                           atomid == "O":
+                    rmsds.append(eeglobal_dict\
+                                 ["inter_group_rmsd"]\
+                                 [resid]\
+                                 [atomid]
+                                 )
+            try:    
+                backbone_inter_rmsd[resid] = np.mean(rmsds)
+            except:
+                backbone_inter_rms[resid] = None        
+        backbone_closest = {}
+        for resid in range(min(resid_list),(max(resid_list)+1)):
+            rmsds = []
+            for atomid in atomid_list:
+                if atomid == "N" or \
+                           atomid == "CA" or \
+                           atomid == "C" or \
+                           atomid == "O":
+                    rmsds.append(eeglobal_dict\
+                                 ["closest_approach"]\
+                                 [resid]\
+                                 [atomid]
+                                 )
+            try:
+                backbone_closest[resid] = np.mean(rmsds)
+            except:
+                backbone_closest[resid] = None
+    except:
+        pass
+
+
+    if options.avg == False:
+        title = "eeGLOBAL_dcut=" + str(dcut)
+        plt.figure()
+        plt.plot(backbone_intra_m_rmsd.keys(),
+                   backbone_intra_m_rmsd.values(),
+                   blue,
+                   label="Group M RMSD",
+                   linewidth=1.5
+                   )
+        try:
+            plt.plot(backbone_intra_n_rmsd.keys(),
+                       backbone_intra_n_rmsd.values(),
+                       green,
+                       label="Group N RMSD",
+                       linewidth=1.5
+                       )
+            plt.plot(backbone_inter_rmsd.keys(),
+                       backbone_inter_rmsd.values(),
+                       purple,
+                       linestyle='--',
+                       label="Between groups RMSD",
+                       linewidth=1.5
+                       )
+            plt.plot(backbone_closest.keys(),
+                       backbone_closest.values(),
+                       red,
+                       label="Closest Approach",
+                       linewidth=1.5
+                       )
+        except:
+            pass
+        plt.xlabel("Residue Number")
+        plt.ylabel("Backbone rmsd")
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                     loc=3,
+                     ncol=2,
+                     mode="expand",
+                     borderaxespad=0.
+                     )
+        ax = plt.gca()
+        ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        fig = plt.gcf()
+        fig.canvas.set_window_title(title)
+        plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+        plt.close()
+        print "eeGlobal plot saved as '" + title + ".png'."
+
+        if options.skiplocal == False:
+
+            print "Plotting eeLocal:"
+            ## eeLocal plot
+
+            title = "eeLocal"
+            plt.figure()
+            plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                       eelocal_dict["group_m_lodr"].values(),
+                       blue,
+                       label="Group M RMS-LODR",
+                       linewidth=1.5
+                       )
+            try:
+                plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                           eelocal_dict["group_n_lodr"].values(),
+                           green,
+                           label="Group N RMS-LODR",
+                           linewidth=1.5
+                           )
+                plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                           eelocal_dict["inter_group_lodr"].values(),
+                           purple, linestyle='--',
+                           label="Inter-group RMS-LODR",
+                           linewidth=1.5
+                           )
+                plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                           eelocal_dict["minimum_lodr"].values(),
+                           red,
+                           label="Minimum LODR",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            plt.xlabel("Residue Number")
+            plt.ylabel("RMS-LODR")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                         loc=3,
+                         ncol=2,
+                         mode="expand",
+                         borderaxespad=0.
+                         )
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.close()
+            print "eeLocal plot saved as '" + title + ".png'."
+            
+    # calculated using averages here, so plots should reflect that
+    else:
+
+        title = "eeGLOBAL_dcut=" + str(dcut)
+        plt.figure()
+        plt.plot(backbone_intra_m_rmsd.keys(),
+                   backbone_intra_m_rmsd.values(),
+                   blue,
+                   label="Group M Mean",
+                   linewidth=1.5
+                   )
+        try:
+            plt.plot(backbone_intra_n_rmsd.keys(),
+                       backbone_intra_n_rmsd.values(),
+                       green,
+                       label="Group N Mean",
+                       linewidth=1.5
+                       )
+            plt.plot(backbone_inter_rmsd.keys(),
+                       backbone_inter_rmsd.values(),
+                       purple,
+                       linestyle='--',
+                       label="Between groups Mean",
+                       linewidth=1.5
+                       )
+            plt.plot(backbone_closest.keys(),
+                       backbone_closest.values(),
+                       red,
+                       label="Closest Approach",
+                       linewidth=1.5
+                       )
+        except:
+            pass
+        #plt.title(title)
+        plt.xlabel("Residue Number")
+        plt.ylabel("Backbone rmsd")
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                     loc=3,
+                     ncol=2,
+                     mode="expand",
+                     borderaxespad=0.
+                     )
+        #plt.subplots_adjust(right=.78)
+        ax = plt.gca()
+        ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        fig = plt.gcf()
+        fig.canvas.set_window_title(title)
+        plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+        plt.close()
+        print "eeGlobal plot saved as '" + title + ".png'."
+
+
+
+
+        if options.skiplocal == False:
+
+            print "Plotting eeLocal:"
+            ## eeLocal plot
+
+            title = "eeLocal"
+            plt.figure()
+            plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                       eelocal_dict["group_m_lodr"].values(),
+                       blue,
+                       label="Group M Mean-LODR",
+                       linewidth=1.5
+                       )
+            try:
+                plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                           eelocal_dict["group_n_lodr"].values(),
+                           green,
+                           label="Group N Mean-LODR",
+                           linewidth=1.5
+                           )
+                plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                           eelocal_dict["inter_group_lodr"].values(),
+                           purple,
+                           linestyle='--',
+                           label="Inter-group Mean-LODR",
+                           linewidth=1.5
+                           )
+                plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                           eelocal_dict["minimum_lodr"].values(),
+                           red,
+                           label="Minimum LODR",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            plt.xlabel("Residue Number")
+            plt.ylabel("RMS-LODR")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                         loc=3,
+                         ncol=2,
+                         mode="expand",
+                         borderaxespad=0.
+                         )
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.close()
+            print "eeLocal plot saved as '" + title + ".png'."
+
+
+
+    # this will set the b-factors in the final overlay to be the
+    # value of the inter_group b factor. Can be nice for visualizing
+    if options.color == True:
+        print("Setting b-factors to relative LODR score in final overlay file, "
+              "for use with 'spectrum b' command in pymol."
+              )
+        pdb_b_fac()    
+    
+
+###############################################################################
+# AUTOMATIC HERE:
+if options.auto == True:
+    # only need these packages if we want to automate
+    import random
+    from scipy.cluster.vq import kmeans, vq
+
+    # this normalizes the datasets
+    # it divides every observation by the stdev of all the observations
+    # (this is different than the default whiten function)       
+    def whiten(obs):
+        std_dev = np.std(obs)
+        return obs / std_dev
+
+    # read in the pairwise data file, we gonna build a matrix
+    pairwise_file = open("pairwise_analysis.tsv", 'r')
+    
+    # read every line except the first (the header)
+    lines = pairwise_file.readlines()[1:]
+    pairwise_file.close()
+    
+    # a nested dictionary for each of these three stats we are interested in
+    atoms_removed = NestedDict()
+    rms_all = NestedDict()
+    rms_sub = NestedDict()
+
+    # build pairwise dictionaries with all the values of interest
+    for line in lines:
+    
+        x = int(line.split()[0])
+        y = int(line.split()[1])
+        atoms = int(line.split()[2])
+        rms_a = float(line.split()[3])
+        rms_s = float(line.split()[4])
+        
+        atoms_removed[x][y] = atoms
+        rms_all[x][y] = rms_a
+        rms_sub[x][y] = rms_s
+    
+    # this is used to generate ranges, it's so I know what the highest number
+    # of models is (ie. how many columns and rows I need in my matrix)    
+    max_y = int(max(list(rms_all.keys())))
+    
+    # making a list that will be formatted in such a way that I can turn it
+    # into an array or a matrix
+    atoms_removed_array_list = []
+    rms_all_array_list = []
+    rms_sub_array_list = []
+    
+    # go from 0 to the max number of models
+    for x in range(0,max_y + 1):
+        this_x_atoms = []
+        this_x_rms_a = []
+        this_x_rms_s = []
+        # now do the same for y, now we are going over every pair
+        for y in range(0,max_y + 1):
+            
+            # fill out the missing values in the array, by duplicating the
+            # correct data
+            if atoms_removed[x][y] == {}:    
+                atoms_removed[x][y] = atoms_removed[y][x]
+                rms_all[x][y] = rms_all[y][x]
+                rms_sub[x][y] = rms_sub[y][x]
+            
+            # append these dictionary values to the list    
+            this_x_atoms.append(atoms_removed[x][y])    
+            this_x_rms_a.append(rms_all[x][y])
+            this_x_rms_s.append(rms_sub[x][y])            
+        
+        # now append them all, what the list looks like for each x (ie. row)
+        # is this [0,23,43,23,53,654,23] where index 0 is x0y0, index 1 is
+        # x0y1 etc.        
+        atoms_removed_array_list.append(this_x_atoms)
+        rms_all_array_list.append(this_x_rms_a)
+        rms_sub_array_list.append(this_x_rms_s)
+    
+    # get whitened matrixes of these bad boys!
+    atoms_removed_asmatrix = whiten(np.asmatrix(atoms_removed_array_list))
+    rms_all_asmatrix = whiten(np.asmatrix(rms_all_array_list))
+    rms_sub_asmatrix = whiten(np.asmatrix(rms_sub_array_list)) 
+    
+    
+    # declare the variables in this scope as I'm going to want to keep them
+    atoms_removed_distortion = 0
+    atoms_removed_best_distortion = None
+    
+    # get the max number of clusters to search for from the user
+    # optional. Default is 6 (as declared in the option.parser at the top)
+    max_clust = options.maxclust + 1
+    
+    # for each number of clusters to search, find that number of clusters
+    for k in range(2,max_clust):
+        codebook, atoms_removed_distortion = kmeans(atoms_removed_asmatrix, k)
+        # penalty based on number of clusters, scales. 0.35 is an arbitrary
+        # constant that biases this search in favor of lower numbers
+        # of clusters. Based on datasets with known clusters, this seems to
+        # perform well enough.
+        atoms_removed_distortion = (atoms_removed_distortion +
+                                    (k * 0.3 * atoms_removed_distortion)
+                                    )        
+        
+        #if this is the best k value based on this distortion stat,
+        # or if it's the first run. 
+        if atoms_removed_distortion < atoms_removed_best_distortion \
+                   or atoms_removed_best_distortion == None:
+            
+            # check if any clusters only have one member
+            test_code, dist = vq(atoms_removed_asmatrix, codebook)
+            test_dict = {}
+            for cluster in test_code:
+                if cluster in test_dict:
+                    test_dict[cluster] = test_dict[cluster] + 1
+                else:
+                    test_dict[cluster] = 1
+            check = False
+            # all the values in the test_dict should be > 1, as each
+            # cluster should have the same group id at least twice, thus
+            # the same key
+            for key in test_dict:
+                if test_dict[key] == 1:
+                    check = True
+            
+            # add to the distortion score if cluster has one member only
+            if check == True:
+                atoms_removed_distortion = atoms_removed_distortion + \
+                                            (atoms_removed_distortion * 0.3)
+        # now check again and set the value
+        if atoms_removed_distortion < atoms_removed_best_distortion \
+                   or atoms_removed_best_distortion == None:
+            atoms_code, dist = vq(atoms_removed_asmatrix, codebook)
+            atoms_removed_best_distortion = atoms_removed_distortion
+            
+            
+            
+            
+              
+    # same as above
+    rms_all_distortion = 0
+    rms_all_best_distortion = None
+    for k in range(2,max_clust):
+        codebook, rms_all_distortion = kmeans(rms_all_asmatrix, k)
+        # penalty based on number of clusters
+        rms_all_distortion = (rms_all_distortion +
+                              (k * 0.3 * rms_all_distortion)
+                              )        
+        if rms_all_distortion < rms_all_best_distortion \
+                   or rms_all_best_distortion == None:
+            
+            
+            test_code, dist = vq(rms_all_asmatrix, codebook)
+            test_dict = {}
+            for cluster in test_code:
+                if cluster in test_dict:
+                    test_dict[cluster] = test_dict[cluster] + 1
+                else:
+                    test_dict[cluster] = 1
+            check = False
+            for key in test_dict:
+                if test_dict[key] == 1:
+                    check = True        
+
+            # add to the distortion score if cluster has one member only
+            if check == True:
+                rms_all_distortion = rms_all_distortion + \
+                                            (rms_all_distortion * 0.3)
+        # now check again and set the value
+        if rms_all_distortion < rms_all_best_distortion \
+                   or rms_all_best_distortion == None:
+            rms_all_code, dist = vq(rms_all_asmatrix, codebook)     
+            rms_all_best_distortion = rms_all_distortion 
+                
+    
+    # same as above
+    rms_sub_distortion = 0
+    rms_sub_best_distortion = None
+    for k in range(2,max_clust):
+        codebook, rms_sub_distortion = kmeans(rms_sub_asmatrix, k)
+        # penalty based on number of clusters
+        rms_sub_distortion = (rms_sub_distortion +
+                              (k * 0.3 * rms_sub_distortion)
+                              )         
+        if rms_sub_distortion < rms_sub_best_distortion \
+                   or rms_sub_best_distortion == None:
+        
+            test_code, dist = vq(rms_sub_asmatrix, codebook)
+            test_dict = {}
+            for cluster in test_code:
+                if cluster in test_dict:
+                    test_dict[cluster] = test_dict[cluster] + 1
+                else:
+                    test_dict[cluster] = 1
+            check = False
+            for key in test_dict:
+                if test_dict[key] == 1:
+                    check = True        
+           
+            # add to the distortion score if cluster has one member only
+            if check == True:
+                rms_sub_distortion = rms_sub_distortion + \
+                                            (rms_sub_distortion * 0.3)
+        # now check again and set the value
+        if rms_sub_distortion < rms_sub_best_distortion \
+                   or rms_sub_best_distortion == None:
+            rms_sub_code, dist = vq(rms_sub_asmatrix, codebook)     
+            rms_sub_best_distortion = rms_sub_distortion  
+    
+    
+    # now, check which of the three matricies gave the best clusters,
+    # from their best clusters
+    # only use one set of clusters, the one with the lowest distortion
+    if atoms_removed_best_distortion < rms_all_best_distortion and \
+               atoms_removed_best_distortion < rms_sub_best_distortion:
+        best_code = atoms_code
+        num_clust = max(best_code) + 1            
+        print("There are " +
+              str(num_clust) +
+              " clusters, and best results came from clustering by: " +
+              "number of atoms removed from core."
+              )
+    elif rms_all_best_distortion < atoms_removed_best_distortion and \
+                 rms_all_best_distortion < rms_sub_best_distortion:
+        best_code = rms_all_code
+        num_clust = max(best_code) + 1            
+        print("There are " +
+              str(num_clust) +
+              " clusters, and best results came from clustering by: rms_all"
+              )
+    elif rms_sub_best_distortion < rms_all_best_distortion and \
+                 rms_sub_best_distortion < atoms_removed_best_distortion:
+        best_code = rms_sub_code
+        num_clust = max(best_code) + 1            
+        print("There are " +
+              str(num_clust) +
+              " clusters, and best results came from clustering by: rms_subset"
+              )
+    # this case should never occur. This was just for debugging.
+    else:
+        best_code = atoms_code
+        num_clust = max(best_code) + 1            
+        print("There are " +
+              str(num_clust) +
+              " clusters, and these results came from clustering by:" +
+              " number of atoms removed from core." +
+              " This was somewhat arbitrary."
+              )
+
+    # get the pairwise list of all the clusters compared against each other,
+    # as we did with x,y values above
+    cluster_combos = combinations(range(num_clust),2)
+    
+    # do analysis for each group vs each group!!
+    # we need a legend in order to know which models belong to which group
+    # used to include this in the names of the plots, but they got too long
+    groups_legend = open("groups_legend.tsv", "w")
+    
+    for groupm,groupn in cluster_combos:
+    
+        group_m = []
+        group_n = []
+        
+        counter = 0
+        for model in best_code:
+            if model == groupm:
+                group_m.append(counter)
+                groups_legend.write(str(counter) + "\t" + str(groupm) + "\n")
+            if model == groupn:
+                group_n.append(counter)
+                groups_legend.write(str(counter) + "\t" + str(groupn) + "\n")                
+            counter += 1
+        
+        outputname = "_Group_" + str(groupm) + "_Group_" + str(groupn)
+        
+        # NOW DOING eeGLOBAL stuff
+        # same as above, in the non-auto section.
+        # for detailed comments, see that section of the code
+
+        # calulate RMS level of intra-ensemble variation for each atom
+        # among m structures
+        try:
+            print "Calculating Intra Group M RMSD:"
+            pairwise_list = combinations(group_m, r = 2)
+            all_dist_dict = {}
+
+            for x,y in pairwise_list:
+                distance_dict = per_atom_distance(x,y)
+                for key in distance_dict:
+                    if key in all_dist_dict:
+                        all_dist_dict[key].append(distance_dict[key])
+                    else:
+                        all_dist_dict[key] = list()
+                        all_dist_dict[key].append(distance_dict[key])
+
+            if options.avg == False:
+                group_m_rmsd = get_rmsd(all_dist_dict)
+            else:
+                group_m_rmsd = get_mean(all_dist_dict)
+        except:
+            pass
+            
+        # calulate RMS level of intra-ensemble variation for each atom
+        # among n structures
+        try:
+            
+            pairwise_list = combinations(group_n, r = 2)
+            all_dist_dict = {}
+            print "Calculating Intra Group N RMSD:"
+            for x,y in pairwise_list:
+                distance_dict = per_atom_distance(x,y)
+                for key in distance_dict:
+                    if key in all_dist_dict:
+                        all_dist_dict[key].append(distance_dict[key])
+                    else:
+                        all_dist_dict[key] = list()
+                        all_dist_dict[key].append(distance_dict[key])
+            if options.avg == False:
+                group_n_rmsd = get_rmsd(all_dist_dict)
+            else:
+                group_n_rmsd = get_mean(all_dist_dict)
+        except:
+            pass
+        try:
+            # calulate RMS level of inter-ensemble variation for each atom
+            # between m and n structures
+            print "Calculating Inter Group RMSD:"
+            inter_list = [x for x in itertools.product(group_m, group_n)] 
+            all_dist_dict = {}
+            for x,y in inter_list:
+                distance_dict = per_atom_distance(x,y)
+                for key in distance_dict:
+                    if key in all_dist_dict:
+                        pass
+                    else:
+                        all_dist_dict[key] = list()                
+                    all_dist_dict[key].append(distance_dict[key])    
+            if options.avg == False:
+                inter_rmsd = get_rmsd(all_dist_dict)
+            else:
+                inter_rmsd = get_mean(all_dist_dict)
+            print "Calculating Closest Approach Distance:"    
+
+            closest_approach_info = get_min(all_dist_dict)
+            closest_approach_index =  closest_approach_info["index"]
+            closest_approach = closest_approach_info["min"]
+
+        except:
+            pass
+
+        # combine them all into a well formatted dictionary for ease of
+        # access
+
+        eeglobal_dict = NestedDict()
+
+
+        for key in group_m_rmsd:
+            resid = int(key.split(":")[0])
+            atomid = key.split(":")[1]
+            try:
+                eeglobal_dict\
+                               ["group_m_rmsd"]\
+                               [resid]\
+                               [atomid]\
+                               = group_m_rmsd[key]
+            except:
+                pass
+            try:
+                eeglobal_dict\
+                               ["group_n_rmsd"]\
+                               [resid]\
+                               [atomid]\
+                               = group_n_rmsd[key]
+            except:
+                pass
+            try:    
+                eeglobal_dict\
+                               ["inter_group_rmsd"]\
+                               [resid]\
+                               [atomid]\
+                               = inter_rmsd[key]
+                eeglobal_dict\
+                               ["closest_approach"]\
+                               [resid]\
+                               [atomid]\
+                               = closest_approach[key]
+                eeglobal_dict\
+                               ["closest_approach_index"]\
+                               [resid]\
+                               [atomid]\
+                               = str(inter_list[closest_approach_index[key]])
+            except:
+                pass
+
+        # sort them for nicer output
+        resid_list = []     
+        for key in eeglobal_dict["group_m_rmsd"]:
+            resid_list.append(key)
+        resid_list = set(resid_list)
+        resid_list = list(sorted(resid_list))
+
+        atomid_list = []     
+        for resid in eeglobal_dict["group_m_rmsd"]:
+            for key in eeglobal_dict["group_m_rmsd"][resid]:
+                atomid_list.append(key)
+        atomid_list = set(atomid_list)
+        atomid_list = list(sorted(atomid_list))
+
+
+
+        # eeLocal calculations
+        if options.skiplocal == False:
+
+            try:
+                print "Calculating LODR scores for group M:"
+                pairwise_list = combinations(group_m, r = 2)
+                all_lodr_dict = {}
+                lodr_dict = {}
+
+                for x,y in pairwise_list:
+                    for resnum in resid_list:        
+                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                              
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                            
+                if options.avg == False:            
+                    group_m_lodr = get_rmsd(all_lodr_dict)
+                else:
+                    group_m_lodr = get_mean(all_lodr_dict)    
+            except:
+                pass
+            # calulate LODR among n structures
+            try:
+                pairwise_list = combinations(group_n, r = 2)
+                print "Calculating LODR scores for group N:"
+                all_lodr_dict = {}
+                lodr_dict = {}
+
+                for x,y in pairwise_list:
+                    for resnum in resid_list:        
+                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                              
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                
+                if options.avg == False:            
+                    group_n_lodr = get_rmsd(all_lodr_dict)
+                else:
+                    group_n_lodr = get_mean(all_lodr_dict)
+            except:
+                pass
+            try:
+                # calulate LODR between m and n structures
+                print "Calculating Inter Group LODR:"
+                inter_list = [x for x in itertools.product(group_m, group_n)]
+              
+                all_lodr_dict = {}
+                lodr_dict = {}
+                for x,y in inter_list:
+                    for resnum in resid_list:        
+                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                              
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                if options.avg == False:
+                    inter_group_lodr = get_rmsd(all_lodr_dict)
+                else:
+                    inter_group_lodr = get_mean(all_lodr_dict) 
+                          
+                print("Calculating Minimum LODR between " +
+                      "M and N at each residue:"
+                      )
+                
+                minimum_lodr_info = get_min(all_lodr_dict)
+                minimum_lodr_index =  minimum_lodr_info["index"]
+                minimum_lodr = minimum_lodr_info["min"]
+
+            except:
+                pass
+
+
+
+            eelocal_dict = NestedDict()
+            for resid in resid_list:
+                try:
+                    try:
+                        eelocal_dict\
+                                      ["group_m_lodr"]\
+                                      [resid]\
+                                      = group_m_lodr[resid]
+                    except:
+                        pass
+                    try:
+                        eelocal_dict\
+                                      ["group_n_lodr"]\
+                                      [resid]\
+                                      = group_n_lodr[resid]
+                    except:
+                        pass
+                    try:                        
+                        eelocal_dict\
+                                      ["inter_group_lodr"]\
+                                      [resid]\
+                                      = inter_group_lodr[resid]
+                        eelocal_dict\
+                                      ["minimum_lodr"]\
+                                      [resid]\
+                                      = minimum_lodr[resid]
+                        eelocal_dict\
+                                      ["minimum_lodr_index"]\
+                                      [resid]\
+                                      = str(
+                                          inter_list[minimum_lodr_index[resid]]
+                                          )
+                    except:
+                        pass
+                except:
+                    pass
+
+
+
+        print "Organizing output, and saving files:"
+
+        # output tables
+        eeglobal_out = open("eeGlobal_out" + outputname + ".tsv", 'w')
+        eeglobal_out.write("res_id"
+                           "\t"
+                           "atom_id"
+                           "\t"
+                           "intra_m_rmsd"
+                           "\t"
+                           "intra_n_rmsd"
+                           "\t"
+                           "inter_group_rmsd"
+                           "\t"
+                           "closest_approach"
+                           "\t"
+                           "closest_approach_pair"
+                           "\t"
+                           "included_in_core"
+                           "\n"
+                           )
+        for resid in resid_list:
+            for atomid in atomid_list:
+                if atomid in eeglobal_dict["group_m_rmsd"][resid]:
+                    if "group_n_rmsd" in eeglobal_dict:
+                        if [int(resid), atomid] in removal_list:
+                            eeglobal_out.write(str(resid) +
+                                               "\t" +
+                                               str(atomid) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["group_m_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["group_n_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["inter_group_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["closest_approach"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["closest_approach_index"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               "False" +
+                                               "\n"
+                                               )
+                        else:
+                            eeglobal_out.write(str(resid) +
+                                               "\t" +
+                                               str(atomid) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["group_m_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["group_n_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["inter_group_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["closest_approach"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["closest_approach_index"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               "True" +
+                                               "\n"
+                                               )
+                    else:
+                        if [int(resid), atomid] in removal_list:
+                            eeglobal_out.write(str(resid) +
+                                               "\t" +
+                                               str(atomid) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["group_m_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "False" +
+                                               "\n"
+                                               )
+                        else:
+                            eeglobal_out.write(str(resid) +
+                                               "\t" +
+                                               str(atomid) +
+                                               "\t" +
+                                               str(eeglobal_dict\
+                                                   ["group_m_rmsd"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "NA" +
+                                               "\t" +
+                                               "True" +
+                                               "\n"
+                                               )
+                else:
+                    pass
+        eeglobal_out.close()
+        print "Output saved in file 'eeGlobal_out" + outputname + ".tsv'."
+
+        if options.skiplocal == False:
+            eelocal_out = open("eeLocal_out" + outputname + ".tsv", 'w')
+            eelocal_out.write("res_id"
+                              "\t"
+                              "intra_m_rms_lodr"
+                              "\t"
+                              "intra_n_rms_lodr"
+                              "\t"
+                              "inter_group_rms_lodr"
+                              "\t"
+                              "minimum_lodr"
+                              "\t"
+                              "mimimum_lodr_pair"
+                              "\n"
+                              )
+
+            for resid in resid_list:
+                if "group_n_lodr" in eelocal_dict:
+                    eelocal_out.write(str(resid) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_m_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_n_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["inter_group_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["minimum_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["minimum_lodr_index"]\
+                                          [resid]
+                                          ) +
+                                      "\n"
+                                      )
+                else:
+                    eelocal_out.write(str(resid) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_m_lodr"]\
+                                          [resid]) +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\n"
+                                      )
+            eelocal_out.close()
+            print "Output saved in file 'eeLocal_out" + outputname + ".tsv'."
+
+        ### PLOTTING ###
+
+        minorLocator = MultipleLocator(1)
+        red = '#e41a1c'
+        blue = '#377eb8'
+        green = '#4daf4a'
+        purple = '#984ea3'
+        yellow = '#ffff33'
+
+        print "Plotting eeGlobal:"
+        ## eeGlobal plot
+        backbone_intra_m_rmsd = {}
+        try:
+            for resid in range(min(resid_list),(max(resid_list)+1)):
+                rmsds = []
+                for atomid in atomid_list:
+                    if atomid == "N" or \
+                               atomid == "CA" or \
+                               atomid == "C" or \
+                               atomid == "O":
+                        rmsds.append(eeglobal_dict["group_m_rmsd"][resid][atomid])
+                try:
+                    backbone_intra_m_rmsd[resid] = np.mean(rmsds)
+                except:
+                    backbone_intra_m_rmsd[resid] = None
+        except:
+            pass
+        try:
+            backbone_intra_n_rmsd = {}
+            for resid in range(min(resid_list),(max(resid_list)+1)):
+                rmsds = []
+                for atomid in atomid_list:
+                    if atomid == "N" or \
+                               atomid == "CA" or \
+                               atomid == "C" or \
+                               atomid == "O":
+                        rmsds.append(eeglobal_dict\
+                                     ["group_n_rmsd"]\
+                                     [resid]\
+                                     [atomid]
+                                     )
+                try:
+                    backbone_intra_n_rmsd[resid] = np.mean(rmsds)
+                except:
+                    backbone_intra_n_rmsd[resid] = None
+        except:
+            pass    
+        try:            
+            backbone_inter_rmsd = {}
+            for resid in range(min(resid_list),(max(resid_list)+1)):
+                rmsds = []
+                for atomid in atomid_list:
+                    if atomid == "N" or \
+                               atomid == "CA" or \
+                               atomid == "C" or \
+                               atomid == "O":
+                        rmsds.append(eeglobal_dict\
+                                     ["inter_group_rmsd"]\
+                                     [resid]\
+                                     [atomid]
+                                     )
+                try:    
+                    backbone_inter_rmsd[resid] = np.mean(rmsds)
+                except:
+                    backbone_inter_rmsd[resid] = None        
+            backbone_closest = {}
+            for resid in range(min(resid_list),(max(resid_list)+1)):
+                rmsds = []
+                for atomid in atomid_list:
+                    if atomid == "N" or \
+                               atomid == "CA" or \
+                               atomid == "C" or \
+                               atomid == "O":
+                        rmsds.append(eeglobal_dict\
+                                     ["closest_approach"]\
+                                     [resid]\
+                                     [atomid]
+                                     )
+                try:
+                    backbone_closest[resid] = np.mean(rmsds)
+                except:
+                    backbone_closest[resid] = None
+        except:
+            pass
+
+
+        if options.avg == False:
+            title = "eeGLOBAL_dcut=" + str(dcut) + outputname
+            plt.figure()
+            try:
+                plt.plot(backbone_intra_m_rmsd.keys(),
+                           backbone_intra_m_rmsd.values(),
+                           blue,
+                           label="Group M RMSD",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            try:
+                plt.plot(backbone_intra_n_rmsd.keys(),
+                           backbone_intra_n_rmsd.values(),
+                           green,
+                           label="Group N RMSD",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            try:    
+                plt.plot(backbone_inter_rmsd.keys(),
+                           backbone_inter_rmsd.values(),
+                           purple,
+                           linestyle='--',
+                           label="Between groups RMSD",
+                           linewidth=1.5
+                           )
+                plt.plot(backbone_closest.keys(),
+                           backbone_closest.values(),
+                           red,
+                           label="Closest Approach",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            plt.xlabel("Residue Number")
+            plt.ylabel("Backbone rmsd")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                         loc=3,
+                         ncol=2,
+                         mode="expand",
+                         borderaxespad=0.
+                         )
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.close()
+            print "eeGlobal plot saved as '" + title + ".png'."
+
+
+
+
+            if options.skiplocal == False:
+
+                print "Plotting eeLocal:"
+                ## eeLocal plot
+
+                title = "eeLocal" + outputname
+                plt.figure()
+                try:
+                    plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                               eelocal_dict["group_m_lodr"].values(),
+                               blue,
+                               label="Group M RMS-LODR",
+                               linewidth=1.5
+                               )
+                except: 
+                    pass
+                try:
+                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                               eelocal_dict["group_n_lodr"].values(),
+                               green, label="Group N RMS-LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                try:
+                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                               eelocal_dict["inter_group_lodr"].values(),
+                               purple,
+                               linestyle='--',
+                               label="Inter-group RMS-LODR",
+                               linewidth=1.5
+                               )
+                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                               eelocal_dict["minimum_lodr"].values(),
+                               red,
+                               label="Minimum LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                plt.xlabel("Residue Number")
+                plt.ylabel("RMS-LODR")
+                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                             loc=3,
+                             ncol=2,
+                             mode="expand",
+                             borderaxespad=0.
+                             )
+                ax = plt.gca()
+                ax.xaxis.set_minor_locator(minorLocator)
+                ax.xaxis.set_ticks_position('bottom')
+                ax.yaxis.set_ticks_position('left')
+                fig = plt.gcf()
+                fig.canvas.set_window_title(title)
+                plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+                plt.close()
+                print "eeLocal plot saved as '" + title + ".png'."
+
+        else:
+
+            title = "eeGLOBAL_dcut=" + str(dcut) + outputname
+            plt.figure()
+            try:
+                plt.plot(backbone_intra_m_rmsd.keys(),
+                           backbone_intra_m_rmsd.values(),
+                           blue,
+                           label="Group M Mean",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            try:
+                plt.plot(backbone_intra_n_rmsd.keys(),
+                           backbone_intra_n_rmsd.values(),
+                           green,
+                           label="Group N Mean",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            try:    
+                plt.plot(backbone_inter_rmsd.keys(),
+                           backbone_inter_rmsd.values(),
+                           purple,
+                           linestyle='--',
+                           label="Between groups Mean",
+                           linewidth=1.5
+                           )
+                plt.plot(backbone_closest.keys(),
+                           backbone_closest.values(),
+                           red,
+                           label="Closest Approach",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            plt.xlabel("Residue Number")
+            plt.ylabel("Backbone rmsd")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                         loc=3,
+                         ncol=2,
+                         mode="expand",
+                         borderaxespad=0.
+                         )
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.close()
+            print "eeGlobal plot saved as '" + title + ".png'."
+
+
+
+
+            if options.skiplocal == False:
+
+                print "Plotting eeLocal:"
+                ## eeLocal plot
+
+                title = "eeLocal" + outputname
+                plt.figure()
+                try:
+                    plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                               eelocal_dict["group_m_lodr"].values(),
+                               blue, label="Group M Mean-LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                try:
+                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                               eelocal_dict["group_n_lodr"].values(),
+                               green,
+                               label="Group N Mean-LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                try:
+                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                               eelocal_dict["inter_group_lodr"].values(),
+                               purple,
+                               linestyle='--',
+                               label="Inter-group Mean-LODR",
+                               linewidth=1.5
+                               )
+                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                               eelocal_dict["minimum_lodr"].values(),
+                               red,
+                               label="Minimum LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                plt.xlabel("Residue Number")
+                plt.ylabel("RMS-LODR")
+                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                             loc=3,
+                             ncol=2,
+                             mode="expand",
+                             borderaxespad=0.
+                             )
+                ax = plt.gca()
+                ax.xaxis.set_minor_locator(minorLocator)
+                ax.xaxis.set_ticks_position('bottom')
+                ax.yaxis.set_ticks_position('left')
+                fig = plt.gcf()
+                fig.canvas.set_window_title(title)
+                plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+                plt.close()
+                print "eeLocal plot saved as '" + title + ".png'."
+
+
+
+    # now need to sort the groups legend so that it is human readable
+    groups_legend.close()
+    groups_legend = open("groups_legend.tsv", "r")
+    os.remove("groups_legend.tsv")
+    groups_legend_sorted = open("groups_legend.tsv", "w")
+    lines = [line for line in groups_legend if line.strip()]
+    lines = set(lines)
+    lines = list(lines)
+    
+    lines_fixed = []
+    for line in lines:
+        new_line = line.replace('\t', '.')
+        new_line = float(new_line)
+        lines_fixed.append(new_line)
+    lines_fixed.sort()
+    
+    groups_legend_sorted.write("model\tgroup\n")
+    for line in lines_fixed:
+        new_line = str(line)
+        new_line = new_line.replace('.','\t')
+        groups_legend_sorted.write(new_line + "\n")
+    groups_legend_sorted.close()
+    
+    print "Saved group identity in 'groups_legend.tsv'"
+    
+    print "Creating pdb files for each group..."
+    cluster_sep()
+
+# time stuff
+endTime = time.time()
+workTime =  endTime - startTime
+print "\nEverything completed in: " + str(workTime) + " seconds.\n"
+log.write( "\nEverything completed in: " + str(workTime) + " seconds.\n")
+log.close()
+# removes the log file if the user didn't ask for it
+if options.log == True:
+    pass
+else:
+    os.remove("ensemblator.log")
+
+
+
+# Done!
