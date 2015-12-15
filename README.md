@@ -258,14 +258,5 @@ Andrew E. Brereton - Oregon State University - 2015
 	    lowercase, it will break the ensemblator.
 
 6. Bug Reports:
-	Please send any bug reports to andrew@brereton.me, or 
-	karplusp@science.oregonstate.edu. It is helpful if possible for you to
-	include the exact files that are causing the bug. I find it very satisfying
-	to remove bugs from my code, so please do not hesitate to inform me of some
-	strange, unpredicted error.
-
-7. FAQ:
-	Q:	Do they have to be NMR ensembles?
-	A:	No. You can make an ensemble out of any type of structure you want!
-	
+	Please submit any issues if you have a bug!
 	
