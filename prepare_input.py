@@ -329,9 +329,37 @@ def eeprep(pdbs):
             
     # start building the structure
     io = PDBIO()
+    
+    
+    # get a list of keys from the structures dictionary, and sort it
+    # alphabetically, so that the final product will be more sensible
+    
+    sorted_structures = []
     for key in structures:
+        # get a list of the filenames, without the "prepped_" in front
+        sorted_structures.append(legend_dict[key][8:len(legend_dict[key])])
+    # get the index order to call these in alphabetical order, put those
+    # in a list (so now I can call the dictionaries in this order, using
+    # these index numbers as the keys.)
+    sorted_keys = sorted(range(len(sorted_structures)), \
+                                            key=lambda k: sorted_structures[k])
+    
+    # need a counter that is just based on order, to use here, so that model 0
+    # will be the first occuring one, etc.
+    order_counter = 0
+    # this is needed so that we can access the actual index while iterating
+    # over the sorted list
+    # also need the list in order to iterate over a non-random order of the
+    # indicies
+    # I'm aware that this is embarassingly cumbersome
+    order_dict = {}
+    order_list = []
+    for key in sorted_keys:
         io.set_structure(structures[key])
-        io.save(str(key)+'_out.pdb')
+        io.save(str(order_counter)+'_out.pdb')
+        order_dict[order_counter] = key
+        order_list.append(order_counter)
+        order_counter += 1
 
     outputname = options.output
 
@@ -341,11 +369,12 @@ def eeprep(pdbs):
 
     # formatting the output files here
     counter = 0
-    for key in structures:
+    for key in order_dict:
         filename = str(key)+'_out.pdb'                        
         if backbone_scan(filename) == True:
             os.remove(filename)
-            legend_dict[key] = 'REMOVED FROM FINAL ENSEMBLE'
+            # indicate which conformations were bad
+            legend_dict[order_dict[key]] = 'REMOVED FROM FINAL ENSEMBLE'
         else:
             infile = open(filename,'r')
             os.remove(filename)
@@ -381,7 +410,13 @@ def eeprep(pdbs):
             outfile.write(line)
         else:
             outfile.write(line)
-    return legend_dict
+    
+    # now sort the legend_dict to reflect the new order of _out files
+    sorted_legend_dict = {}
+    for key in order_list:
+        sorted_legend_dict[key] = legend_dict[order_dict[key]]
+    
+    return sorted_legend_dict
 
 # xray-prep function, reads in a single pdb file at a time, 
 # also needs an output name to iterate over
@@ -1078,3 +1113,22 @@ if options.log == True:
     pass
 else:
     os.remove("prepare_input.log")
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
