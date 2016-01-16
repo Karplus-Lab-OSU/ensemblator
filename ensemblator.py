@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 import numpy as np
 import time
 import Bio
@@ -235,20 +234,140 @@ def cluster_sep():
             try:
                 try:   
                     if group == key \
-                            and old_line[0:5] == "MODEL" \
-                            and old_line[0:3] == "TER":                    
+                            and (old_line[0:5] == "MODEL" \
+                            or old_line[0:3] == "TER"):                    
                         output.write(old_line)
                 except:
                     pass         
                 if group == key \
-                        and line[0:5] != "MODEL" \
-                        and line[0:3] != "TER":    
+                        and (line[0:5] != "MODEL" \
+                        and line[0:3] != "TER"):    
                     output.write(line)
             except:
                 pass
             old_line = line
             
         output.close()
+
+# this is a function that will separate all the clusters into their own
+# pdb_files
+def cluster_sep_non_auto():
+    pdb = open(outputname_all_overlay, 'r')
+    atoms = []
+    for line in pdb:
+        if line[0:4] == "ATOM" \
+                or line[0:6] == "HETATM" \
+                or line[0:6] == "MODEL " \
+                or line[0:6] == "CONECT" \
+                or line[0:3] == "END" \
+                or line[0:6] == "MASTER" \
+                or line[0:3] == "TER" \
+                or line[0:6] == "ENDMDL" \
+                or line[0:5] == "HELIX" \
+                or line[0:5] == "SHEET" \
+                or line[0:6] == "REMARK":
+            atoms = atoms + [line,]
+
+    # dictionary of all the values to use for coloring
+    group_dict = {}
+    group_dict["excluded"] = " 0.00"
+    group_dict["m"] = " 1.00"
+    group_dict["n"] = " 2.00"
+    group_dict["both"] = " 3.00"
+
+    # list of new lines that has the b-factors replaced
+    new_atoms = []
+    key = None
+    model_num = None
+    no_group_N = False
+    one_in_both = False
+    
+    for line in atoms:
+        if line[0:5] == "MODEL":
+            # get model number
+            model_num = int(line[11:15])
+            
+            # if there is a group N
+            try:
+                if (model_num in options.groupm and \
+                    model_num in options.groupn):
+                    key = "both"
+                    one_in_both = True
+                elif model_num in options.groupm:
+                    key = "m"
+                elif model_num in options.groupn:
+                    key = "n"
+                else:
+                    key = "excluded"
+            # if there is only group M
+            except:
+                no_group_N = True
+                if model_num in options.groupm:
+                    key = "m"
+                else:
+                    key = "excluded"            
+            
+            new_atoms = new_atoms + [line,]
+        # if not a MODEL line
+        else:
+            # if ATOM line replace b factor
+            if line[0:4] == "ATOM" or line[0:6] == "HETATM":
+                new_atoms = new_atoms + [
+                                            str(line[0:60]) +
+                                            " " +
+                                            str(group_dict[key]) +
+                                            str(line[67:]),
+                                        ]
+            # otherwise keep the line
+            else:
+                new_atoms = new_atoms + [line,]
+    if no_group_N == False and one_in_both == False:
+        group_list = [" 0.00", " 1.00", " 2.00"]
+    if no_group_N == True:
+        group_list = [" 0.00", " 1.00"]
+    if one_in_both == True:
+        group_list = [" 0.00", " 1.00", " 2.00", " 3.00"]
+        
+    # print a pdb file for each set of models
+    for key in group_list:
+        if key == " 1.00":
+            group_status = "M"
+        elif key == " 2.00":
+            group_status = "N"
+        elif key == " 3.00":
+            group_status = "BOTH"
+        elif key == " 0.00":
+            group_status = "NONE"
+            
+        output = open("group" + "_" + group_status +".pdb", "w")
+        
+        old_line = None
+        for line in new_atoms:
+            # read the b factor
+            try:
+                if line[0:4] == "ATOM" or line[0:6] == "HETATM":
+                    group = line[61:66]
+            except:
+                pass
+            # if the b factor is the kind we are looking for (ie 2 or 1)
+            try:
+                try:   
+                    if group == key \
+                            and (old_line[0:5] == "MODEL" \
+                            or old_line[0:3] == "TER"):                    
+                        output.write(old_line)
+                except:
+                    pass         
+                if group == key \
+                        and (line[0:5] != "MODEL" \
+                        and line[0:3] != "TER"):    
+                    output.write(line)
+            except:
+                pass
+            old_line = line
+            
+        output.close()
+
 
 # this is a function that will set b factors based on intergroup lodr if
 # available, otherwise it will just use group m lodr
@@ -1875,8 +1994,6 @@ if options.auto == False:
             plt.close()
             print "eeLocal plot saved as '" + title + ".png'."
 
-
-
     # this will set the b-factors in the final overlay to be the
     # value of the inter_group b factor. Can be nice for visualizing
     if options.color == True:
@@ -1884,7 +2001,9 @@ if options.auto == False:
               "for use with 'spectrum b' command in pymol."
               )
         pdb_b_fac()    
-    
+    else:
+        print "Creating pdb files for each group..."
+        cluster_sep_non_auto()
 
 ###############################################################################
 # AUTOMATIC HERE:
@@ -2994,3 +3113,4 @@ else:
 
 
 # Done!
+    
