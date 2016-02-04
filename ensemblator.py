@@ -367,99 +367,112 @@ def cluster_sep_non_auto():
             old_line = line
             
         output.close()
-
+    return(group_list)
 
 # this is a function that will set b factors based on intergroup lodr if
 # available, otherwise it will just use group m lodr
-def pdb_b_fac():    
+def pdb_b_fac(group_list):    
     
-    # open the output and remove it, in order to rewrite our version of it
-    pdb = open(outputname, 'r')
-    os.remove(outputname)
-    output = open(outputname, "w")
+    
+    for key in group_list:
+        if key == " 1.00":
+            group_status = "M"
+        elif key == " 2.00":
+            group_status = "N"
+        elif key == " 3.00":
+            group_status = "BOTH"
+        elif key == " 0.00":
+            group_status = "NONE"
 
-    value_dict = {}
-    # get the intergroup lodr, or the group m lodr
-    for resid in eelocal_dict["group_m_lodr"]:
-        try:
-            if eelocal_dict\
-                       ["group_m_lodr"]\
-                       [resid] is not None:
-                value_dict[resid] = float(eelocal_dict\
-                                          ["inter_group_lodr"]\
-                                          [resid]
-                                          )
-        except:
-            if eelocal_dict\
-                        ["group_m_lodr"]\
-                        [resid] is not None:
-                value_dict[resid] = float(eelocal_dict\
-                                          ["group_m_lodr"]\
-                                          [resid]
-                                          )
-    # 60 - 66 is the b-factors
-    # list of all the ATOM lines
-    atoms = []
-    # actually it's getting all the lines
-    for line in pdb:
-        if line[0:4] == "ATOM" or \
-               line[0:6] == "HETATM" or \
-               line[0:6] == "MODEL " or \
-               line[0:6] == "CONECT" or \
-               line[0:3] == "END" or \
-               line[0:6] == "MASTER" or \
-               line[0:3] == "TER" or \
-               line[0:6] == "ENDMDL" or \
-               line[0:5] == "HELIX" or \
-               line[0:5] == "SHEET" or \
-               line[0:6] == "REMARK":
-            atoms = atoms + [line,]
+                        
+        
+        # open the output and remove it, in order to rewrite our version of it
+        pdb = open("group" + "_" + group_status +".pdb", 'r')
+        os.remove("group" + "_" + group_status +".pdb")
+        output = open("group" + "_" + group_status +".pdb", "w")
 
-    # figure out what the maximum value in the color values is
-    maximum = max(value_dict, key=lambda i: value_dict[i])
-    maximum = value_dict[maximum]
+        value_dict = {}
+        # get the intergroup lodr, or the group m lodr
+        for resid in eelocal_dict["group_m_lodr"]:
+            try:
+                if eelocal_dict\
+                           ["group_m_lodr"]\
+                           [resid] is not None:
+                    value_dict[resid] = float(eelocal_dict\
+                                              ["inter_group_lodr"]\
+                                              [resid]
+                                              )
+            except:
+                if eelocal_dict\
+                            ["group_m_lodr"]\
+                            [resid] is not None:
+                    value_dict[resid] = float(eelocal_dict\
+                                              ["group_m_lodr"]\
+                                              [resid]
+                                              )
+        # 60 - 66 is the b-factors
+        # list of all the ATOM lines
+        atoms = []
+        # actually it's getting all the lines
+        for line in pdb:
+            if line[0:4] == "ATOM" or \
+                   line[0:6] == "HETATM" or \
+                   line[0:6] == "MODEL " or \
+                   line[0:6] == "CONECT" or \
+                   line[0:3] == "END" or \
+                   line[0:6] == "MASTER" or \
+                   line[0:3] == "TER" or \
+                   line[0:6] == "ENDMDL" or \
+                   line[0:5] == "HELIX" or \
+                   line[0:5] == "SHEET" or \
+                   line[0:6] == "REMARK":
+                atoms = atoms + [line,]
 
-    # dictionary of normalized values
-    norm_dict = {}
+        # figure out what the maximum value in the color values is
+        maximum = max(value_dict, key=lambda i: value_dict[i])
+        maximum = value_dict[maximum]
 
-    for key in value_dict:
-        # normalize to the maximum
-        value = value_dict[key] / maximum
-        # ensure there are two digits after the decimal place
-        replacement = "%0.2f" % (value,)
-        # ensures the replacement value is the correct number of digits
-        while len(replacement) != 5:
-            replacement = " " + replacement
-        # stores this value for use, should be a five character string like so:
-        # " 00.10"
-        norm_dict[key] = replacement
+        # dictionary of normalized values
+        norm_dict = {}
 
-    # list of new lines that has the b-factors replaced
-    new_atoms = []
-    for line in atoms:
-        try:
-            key = int(line[22:26])
-            if line[0:4] == "ATOM" or line[0:6] == "HETATM":       
-                if key in norm_dict: 
-                    # replaces the value
-                    new_atoms = new_atoms + [
-                                str(line[0:60]) +
-                                    " " +
-                                    str(norm_dict[key]) +
-                                    str(line[67:]),
-                                ]
-                else:
-                    new_atoms = new_atoms + [
+        for key in value_dict:
+            # normalize to the maximum
+            value = value_dict[key] / maximum
+            # ensure there are two digits after the decimal place
+            replacement = "%0.2f" % (value,)
+            # ensures the replacement value is the correct number of digits
+            while len(replacement) != 5:
+                replacement = " " + replacement
+            # stores this value for use, should be a five character string like so:
+            # " 00.10"
+            norm_dict[key] = replacement
+
+        # list of new lines that has the b-factors replaced
+        new_atoms = []
+        for line in atoms:
+            try:
+                key = int(line[22:26])
+                if line[0:4] == "ATOM" or line[0:6] == "HETATM":       
+                    if key in norm_dict: 
+                        # replaces the value
+                        new_atoms = new_atoms + [
                                     str(line[0:60]) +
-                                    " 00.00" +
-                                    str(line[67:]),
-                                ]
-        except:
-            new_atoms = new_atoms + [line,]
-    # write the output
-    for line in new_atoms:
-        output.write(line)
-    output.close()
+                                        " " +
+                                        str(norm_dict[key]) +
+                                        str(line[67:]),
+                                    ]
+                    else:
+                        new_atoms = new_atoms + [
+                                        str(line[0:60]) +
+                                        " 00.00" +
+                                        str(line[67:]),
+                                    ]
+            except:
+                new_atoms = new_atoms + [line,]
+        # write the output
+        for line in new_atoms:
+            output.write(line)
+        output.close()
     
 # a funtion to get the distance of any two atoms, given coordinates    
 def get_dist(atom_y, atom_x):
@@ -2000,7 +2013,8 @@ if options.auto == False:
         print("Setting b-factors to relative LODR score in final overlay file, "
               "for use with 'spectrum b' command in pymol."
               )
-        pdb_b_fac()    
+        group_list = cluster_sep_non_auto()
+        pdb_b_fac(group_list)
     else:
         print "Creating pdb files for each group..."
         cluster_sep_non_auto()
