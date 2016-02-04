@@ -243,6 +243,11 @@ Andrew E. Brereton - Oregon State University - 2015
                 changing only dcut, as if the groups are the same, the LODR
                 scores will be identical to previous analysis, regardless of
                 a new dcut value.
+            --color
+                Setting this will result in the final models output having the
+                b factors replaced with the Inter-group (if more than one
+                group) or Group M LODR. This allows easy visualization in 
+                pymol using the "spectrum b" command.
                 
 5. Warnings:
     1.	All files used as input must be IN the present working directory. 
