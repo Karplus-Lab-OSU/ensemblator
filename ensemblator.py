@@ -2272,15 +2272,16 @@ if options.auto == True:
     # do analysis for each group vs each group!!
     # we need a legend in order to know which models belong to which group
     # used to include this in the names of the plots, but they got too long
+
     groups_legend = open("groups_legend.tsv", "w")
-    
+
     for groupm,groupn in cluster_combos:
     
         group_m = []
         group_n = []
         
         counter = 0
-        for model in best_code:
+        for model in best_code:            
             if model == groupm:
                 group_m.append(counter)
                 groups_legend.write(str(counter) + "\t" + str(groupm) + "\n")
@@ -2288,6 +2289,7 @@ if options.auto == True:
                 group_n.append(counter)
                 groups_legend.write(str(counter) + "\t" + str(groupn) + "\n")                
             counter += 1
+        
         
         outputname = "_Group_" + str(groupm) + "_Group_" + str(groupn)
         
@@ -3085,13 +3087,13 @@ if options.auto == True:
 
 
     # now need to sort the groups legend so that it is human readable
-    groups_legend.close()
     groups_legend = open("groups_legend.tsv", "r")
     os.remove("groups_legend.tsv")
     groups_legend_sorted = open("groups_legend.tsv", "w")
     lines = [line for line in groups_legend if line.strip()]
     lines = set(lines)
     lines = list(lines)
+    groups_legend.close()
     
     lines_fixed = []
     for line in lines:
@@ -3107,10 +3109,75 @@ if options.auto == True:
         groups_legend_sorted.write(new_line + "\n")
     groups_legend_sorted.close()
     
-    print "Saved group identity in 'groups_legend.tsv'"
     
+    # leave this here, it needs groups_legend.tsv to still exist
     print "Creating pdb files for each group..."
     cluster_sep()
+
+    
+    # now if the model_legend.tsv file exists, append the groups to that
+    # and remove the group_legend file. Otherwise don't
+    
+    #if ir exists
+    if open("model_legend.tsv", "r"):
+        # handles for the two legends
+        mLegend = open("model_legend.tsv", "r")
+        gLegend = open("groups_legend.tsv", "r")
+        
+        # create lists, from all the lines, one at a time,
+        # so that I can iterate over one, but use the same index
+        # to refer to the same model from the other
+        mLines = []
+        gLines = []
+        nLines = []
+        mismatch = False
+        
+        for line in mLegend:
+            mLines.append(line)
+        for line in gLegend:
+            gLines.append(line)
+        
+        
+        counter = 0
+        # rewrite the legend    
+        for line in mLines:
+            try:
+                # redundent check to ensure the models are the same (checks #)
+                if gLines[counter].split("\t")[0] == line.split("\t")[0]:   
+                    nLines.append(line.strip() + 
+                                 "\t" + 
+                                 gLines[counter].split("\t")[1]
+                                 )
+                else:
+                    print "Group legend saved seperatly " + \
+                          "due to model # mismatch."
+                    print "Saved group identity in 'groups_legend.tsv'"
+                    mismatch = True
+                    break                    
+                counter += 1
+            except:
+                # model and group legend don't contain the same number of
+                # members. Don't mess with either file, just leave it.
+                # user error
+                print "Group legend saved seperatly due to model # mismatch."
+                print "Saved group identity in 'groups_legend.tsv'"
+                mismatch = True
+                break 
+        
+        # if everything went well, write the new legend. Otherwise leave
+        # everything the same
+        if mismatch == False:
+            os.remove("groups_legend.tsv")
+            os.remove("model_legend.tsv")    
+            output = open("model_legend.tsv", "w")                
+            for line in nLines:
+                output.write(line)
+            output.close()
+            print "Saved group identity in 'model_legend.tsv'"
+            
+        mLegend.close()
+        gLegend.close()
+        
 
 # time stuff
 endTime = time.time()
@@ -3127,4 +3194,3 @@ else:
 
 
 # Done!
-    
