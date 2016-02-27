@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 
 
-import fnmatch
-from optparse import OptionParser
+from Tkinter import *
+import tkFileDialog
+import tkMessageBox
+import shutil;
+import subprocess;
+import re
+import io
+import ntpath
 import Bio
 from Bio.PDB.Superimposer import Superimposer
 from Bio.PDB.PDBParser import PDBParser
@@ -21,6 +27,20 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from operator import itemgetter
 
+
+
+class TextRedirector(object):
+    def __init__(self, widget, tag="stdout"):
+        self.widget = widget
+        self.tag = tag
+
+    def write(self, str):
+        self.widget.configure(state="normal")
+        self.widget.insert("end", str, (self.tag,))
+        self.widget.see(END)
+        self.widget.configure(state="disabled")
+        self.widget.update_idletasks()
+
 # definition for a type of dictionary that will allow new dictionaries to
 # be added on demand
 class NestedDict(dict):
@@ -28,13 +48,6 @@ class NestedDict(dict):
         self[key] = NestedDict()
         return self[key]
 
-# parser for group numbers
-def parse_range(option, opt, value, parser):
-    result = set()
-    for part in value.split(','):
-        x = part.split('-')
-        result.update(range(int(x[0]), int(x[-1]) + 1))
-        setattr(parser.values, option.dest, sorted(result))
         
 # function for iterating
 def grouped(iterable, n):
@@ -42,230 +55,29 @@ def grouped(iterable, n):
     # (s2n,s2n+1,s2n+2,...s3n-1), ...
     return izip(*[iter(iterable)]*n)
 
-#function to allow multiple pdb files in the command line
-def cb(option, opt_str, value, parser):
-    args=[]
-    for arg in parser.rargs:
-        if arg[0] != "-":
-            args.append(arg)
-        else:
-            del parser.rargs[:len(args)]
-            break
-        if getattr(parser.values, option.dest):
-            args.extend(getattr(parser.values, option.dest))
-    setattr(parser.values, option.dest, args)
 
-parser=OptionParser()
-parser.add_option("--prepare",
-                  action="store_true",
-                  dest="prepare",
-                  default=False,
-                  help=("Use the ensemblator to create an ensemble ready"
-                        " for analysis. Must be done at least once before"
-                        " the analysis option can be used without erros."
-                       )
-                  )
-parser.add_option("--analyze",
-                  action="store_true",
-                  dest="analyze",
-                  default=False,
-                  help=("Use the ensemblator to analyze an ensemble prepared"
-                        " for analysis."
-                       )
-                  )
-parser.add_option(
-                    "-i", 
-                    "--input", 
-                    dest="input",
-                    action="callback", 
-                    callback=cb, 
-                    metavar="FILE", 
-                    help="This should be a pdb file, or series of pdb files."
-                    )
-parser.add_option(
-                    "-o", 
-                    "--output", 
-                    dest="output",
-                    type="str", 
-                    help="This descriptor will define the final name of the " +
-                    "output file."
-                    )
-parser.add_option(  "--pwd", 
-                    dest="pwd",
-                    type="str", 
-                    help="This defines a working directory to save all output"
-                          " files in."
-                    )
-parser.add_option(
-                    "-p", 
-                    "--permissive", 
-                    action="store_true", 
-                    dest="permissive", 
-                    default=False, 
-                    help="If set, will use files to generate ensemble even" +
-                    " if there are gaps or chainbreaks. These gaps will " +
-                    "propigate into all members of the ensemble."
-                    )
-parser.add_option(
-                    "--semipermissive",  
-                    dest="semipermissive",
-                    type="int", 
-                    default=0, 
-                    help="If set, will use files to generate ensemble even" +
-                    " if there are gaps or chainbreaks, but only if they " +
-                    "contain less than the specified number of gaps"
-                    " (missing residues). Will also remove structures if they"
-                    " are too disordered (ie. have many ambigious missing "
-                    " atoms."
-                    )
-parser.add_option(
-                    "-s", "--skipxray", 
-                    action="store_true", 
-                    dest="skip", 
-                    default=False, 
-                    help="If set, will skip xray-prep module. Only use if" + 
-                    " you know each file contains one model, one chain, " + 
-                    "and one conformation."
-                    )
-parser.add_option(
-                    "-l", 
-                    "--log", 
-                    action="store_true", 
-                    dest="log", 
-                    default=False, 
-                    help="If set, will generate a log file:" + 
-                    " 'prepare_input.log'."
-                    )
-parser.add_option(  "--align", 
-                    action="store_true", 
-                    dest="align", 
-                    default=False, 
-                    help="If set, will performa a sequence alignment first,"
-                    " and use those residue numbers to create a better result."
-                    )
-parser.add_option(
-                    "-c", 
-                    "--chain", 
-                    type="str",
-                    dest="template", 
-                    help="Will determine which structure to use when aligning"
-                    " sequences. Select a specific input file, and then use a"
-                    " comma and state which chain of the file to use as a"
-                    " template for the alignments. See the README for"
-                    " examples."
-                    )
-parser.add_option(
-                    "--percent",  
-                    dest="percent", 
-                    default=0.7,
-                    type="float",
-                    help="Percent identity to use when building ensemble"
-                    " using the -align function. Any structure with less"
-                    " than this percent identity to the template chain"
-                    " won't be included in the analysis."
-                    )
-parser.add_option("-d",
-                  "--dcut",
-                  dest="dcut",
-                  type = 'float',
-                  default=2.5,
-                  help="Distance cutoff for core decision."
-                  )
-parser.add_option("--auto",
-                  action="store_true",
-                  dest="auto",
-                  default=False,
-                  help=("If set, will cluster the pairwise results and rerun "
-                        "the analysis using the detected groups. Will ignore "
-                        "manually set m and n values while used. In the final "
-                        "outputs, the first group in a filename corresponds to "
-                        "group M, and the second to N. "
-                        "ie. eeLocal_Group_0_Group_1.png has group 0 as M and "
-                        "group 1 as N."
-                        )
-                  )
-parser.add_option("--maxclust",
-                  type='int',
-                  dest="maxclust",
-                  default=6,
-                  help=("Maximum number of clusters to group the results into "
-                        "when using the --auto flag."
-                        )
-                  )
-parser.add_option("-m",
-                  "--groupm",
-                  dest="groupm",
-                  type = 'str',
-                  action="callback",
-                  callback=parse_range,
-                  help=("Models to use in comparision in the first group. Use "
-                        "dashes for a range, commas separate entries. "
-                        "E.g. 1,3,5,8-19,23"
-                        )
-                  )
-parser.add_option("-n",
-                  "--groupn",
-                  dest="groupn",
-                  type = 'str',
-                  action="callback",
-                  callback=parse_range,
-                  help=("Models to use in comparision in the second group. "
-                        "Use dashes for a range, commas separate entries. "
-                        "E.g. 1,3,5,8-19,23. OPTIONAL: do not include a "
-                        "group N in order to do a single ensemble analysis."
-                        )
-                  )
-parser.add_option("--skiplocal",
-                  action="store_true",
-                  dest="skiplocal",
-                  default=False,
-                  help=("If set, will skip eeLocal analysis. Useful if only "
-                        "changing dcut."
-                        )
-                  )
-parser.add_option("--avg",
-                  action="store_true",
-                  dest="avg",
-                  default=False,
-                  help=("If set, will calculate and plot averages instead "
-                        "of RMS."
-                        )
-                  )
-parser.add_option("--color",
-                  action="store_true",
-                  dest="color",
-                  default=False,
-                  help=("If set, will set b-factors in the final overlay to "
-                        "relative inter-group LODR scores (if possible, "
-                        "otherwise uses group m scores). Will not do "
-                        "anything in auto-mode."
-                        )
-                  )
-(options, args) = parser.parse_args()
-# required options
-if not options.prepare and not options.analyze:   # if filename is not given
-    parser.error('Must choose either the --prepare or the --analyze option.')
-if not options.pwd:
-    parser.error('Must use the "--pwd" option to specify a working directory.')
-if options.auto == False:
-    if not options.groupm and not options.prepare:
-        parser.error('At least Group M must be specified, or turn on --auto')
-if not options.input:   # if filename is not given
-    parser.error('Input not specified')
-if options.maxclust < 2:   
-    parser.error('Minimum of 2 clusters. Try again with a higher maxclust')
-if not options.output and not options.analyze:   # if filename is not given
-    parser.error('output filename not given')
-if options.align:
-    if not options.template:   # if filename is not given
-        parser.error('Template not specified. When aligning, use '
-                     '"--chain filename.pdb,X,X" to specifiy a template chain'
-                     ' and model. eg. "--chain 1q4k.pdb,A,0"')
-if options.analyze and len(options.input) > 1:
-    parser.error('Only one input file may be specified for analysis!') 
 
-if not os.path.exists(options.pwd):
-    os.makedirs(options.pwd)
+class options:
+    def __init__(self):
+        self.input = []
+        self.outout = ""
+        self.pwd = ""
+        self.permissive = False
+        self.semipermissive = 0
+        self.align = False
+        self.template = ""
+        self.chain = "X"
+        self.model = "0"
+        self.percent = 0.7
+        self.dcut = 2.5
+        self.auto = False
+        self.maxclust = 6
+        self.groupm = StrVar()
+        self.groupn = StrVar()
+        self.avg = False
+        self.color = False
+
+
 
 ################################################################################
 #### Functions ####
@@ -339,7 +151,7 @@ def aligner(pdb):
 # It's purpose is to check for equvilence of each atom type at each 
 # residue in all the structures
 # it removes non equivelent atoms from the ensemble
-def eeprep(pdbs):
+def eeprep(pdbs, bad_files):
 
     pdb_reader = PDBParser(PERMISSIVE = 1, QUIET = True)
     residues = {}
@@ -403,12 +215,11 @@ def eeprep(pdbs):
     except:
         for filename in bad_files:
             os.remove(filename)
-        sys.exit("\n\n\nFATAL ERROR: \n"
-                 "It is likely that there are no files without gaps."
-                 " Please rerun with the --permissive or semi-permissive"
-                 " options. Especially consider doing an alignment using"
-                 " the --align and --chain options.\n\n\n"
-                 )
+        print("\n\n\nFATAL ERROR: \n"
+              "It is likely that there are no files without gaps."
+              " Please rerun while allowing some or all models with gaps"
+              " . Especially consider doing an alignment. \n\n\n"
+              )
             
     new_residues = dict()
     
@@ -574,7 +385,7 @@ def xrayprep(pdb, output):
     try:
         strukturo = pdb_reader.get_structure("temp", pdb)
     except:
-        sys.exit("\n\n\nFailed to read file:"
+        print("\n\n\nFailed to read file:"
                  " '" + str(pdb) + "'. "
                  "This means there is something wrong with it."
                  " Often, using only the ATOM lines from this file will"
@@ -893,10 +704,6 @@ def backbone_scan(pdb):
               str(pdb)[0:(len(str(pdb))-8)] +
               ", removing from final ensemble."
               )
-        log.write("No ATOM lines in model " + 
-                  str(pdb)[0:(len(str(pdb))-8)] + 
-                  ", removing from final ensemble.\n"
-                  )
         return True
 
 
@@ -1486,14 +1293,6 @@ def final_aligner(outputname, atoms_to_ignore):
                                       )
               )
         
-        log.write("RMS(model %i, model %i) = %0.2f (Used %i out of %i atoms "
-                  "to align structures.)\n" % (ref_model.id,
-                                               alt_model.id,
-                                               super_imposer.rms,
-                                               counter,
-                                               all_atom_counter
-                                               )
-                  )
 
     # save the final structure
     io=Bio.PDB.PDBIO()
@@ -1575,13 +1374,6 @@ def first_aligner(x,y):
                 str(y) +
                 " failed. Possibly there are no atoms here."
                )
-        log.write(
-                "Initial alignment of model " +
-                str(x) +
-                " and model " +
-                str(y) +
-                " failed. Possibly there are no atoms here.\n"
-                )
         return
         
     if ref_model.id == alt_model.id :
@@ -1595,14 +1387,6 @@ def first_aligner(x,y):
         #Update the structure by moving all the atoms in
         #this model (not just the ones used for the alignment)
         super_imposer.apply(alt_model.get_atoms())
-    log.write("RMS(model %i, model %i) = %0.2f (Used %i out of %i atoms to "
-              "align structures.)\n" % (ref_model.id,
-                                        alt_model.id,
-                                        super_imposer.rms,
-                                        counter,
-                                        all_atom_counter
-                                        )
-              )
 
     # The alignment does not need to return anything, as it's primary function
     # is just to update the coordinates of model y in the pair
@@ -1681,12 +1465,6 @@ def pairwise_realigner(x,y, atoms_to_ignore):
                                              alt_model.id
                                              )
               )
-        log.write("There are no consensus atoms at this cutoff distance that "
-                  "are common to model %i and %i.\nExiting... Please try "
-                  "again with a less strict dcut value.\n" % (ref_model.id,
-                                                               alt_model.id
-                                                               )
-                  )
         return
         
     if ref_model.id == alt_model.id :
@@ -1700,15 +1478,6 @@ def pairwise_realigner(x,y, atoms_to_ignore):
         #Update the structure by moving all the atoms in
         #this model (not just the ones used for the alignment)
         super_imposer.apply(alt_model.get_atoms())
-    log.write("RMS(model %i, model %i) = %0.2f (Used %i out of %i atoms to "
-              "align structures.)\n" % (
-                                       ref_model.id,
-                                       alt_model.id,
-                                       super_imposer.rms,
-                                       counter,
-                                       all_atom_counter
-                                       )
-               )
 
 
     # again, does not need to return anything. It is enough to update the
@@ -1872,51 +1641,15 @@ def to_single(triple):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-if options.prepare == True and options.analyze == True:
-    
-    sys.exit("Please choose only one of the options"
-             " '--prepare' or '--analyze'."
-             )
-             
-elif options.prepare == False and options.analyze == False:
-    
-    sys.exit("Please choose only one of the options"
-             " '--prepare' or '--analyze'."
-             )
-
-
 ################################################################################
 #### Prepare Input Files for Analysis ####
 ################################################################################
 
 
-elif options.prepare == True and options.analyze == False:
+def prepare_input(options):
 
-
-
+    if not os.path.exists(options.pwd):
+        os.makedirs(options.pwd)
 
     # mark start time
 
@@ -1924,60 +1657,30 @@ elif options.prepare == True and options.analyze == False:
     # Here the real code begins:
     
     
-    pdbs_full = []
     pdbs = []
     for pdb in options.input:
-        pdbs_full.append(os.path.realpath(pdb))
-        pdbs.append(pdb)                                        
+        pdbs.append(pdb)
     prepped_files_list = []
 
     # change to the working directory
     os.chdir(options.pwd)
-    # writes a log file
-    log = open("prepare_input.log", "a")
-    
-    
-    # skips xrayprep
-    if options.skip == True:
-        counter = 0
-        for pdb in pdbs_full:
-        
-            print "Formatting " + str(pdb) + " for input."
-            log.write( "Formatting " + str(pdb) + " for input.\n")    
-            xray_outname = "prepped_" + str(pdbs[counter][0:(len(pdb[counter])-4)])
-            filein = open(pdb, 'r')
-            fileout = open(xray_outname, 'w')
-            fileout.write("MODEL        0\n")
-            for line in filein:
-                if line[0:6] == 'ATOM  ':
-                    fileout.write(line)
-            fileout.write("TER   \n")        
-            fileout.write("ENDMDL")
-            fileout.close()
-            counter += 1
+
     # runs xray-prep
-    else:
-        print("\n##################\n\nFormatting and seperating..."
-              "\n\n##################\n"
+
+    print("\n##################\n\nFormatting and seperating..."
+          "\n\n##################\n"
+          )
+    counter = 0
+    for pdb in pdbs:
+        print("Formatting " + 
+              str(pdb) + 
+              " for input, and seperating into " +
+              "model, chain, and altconf files."
               )
-        log.write("\n##################\n\nFormatting and seperating..."
-                  "\n\n##################\n"
-                  )
-        counter = 0
-        for pdb in pdbs_full:
-            print("Formatting " + 
-                  str(pdb) + 
-                  " for input, and seperating into " +
-                  "model, chain, and altconf files."
-                  )
-            log.write("Formatting " + 
-                      str(pdb) + 
-                      " for input, and seperating into" +
-                      " model, chain, and altconf files.\n"
-                      )
-            xray_outname = "prepped_" + str(pdbs[counter][0:(len(pdbs[counter])-4)])
-            prepped_files_list.extend(xrayprep(pdb, xray_outname))
-            counter += 1 
+        xray_outname = "prepped_" + \
+            str(ntpath.basename(pdb)[0:(len(ntpath.basename(pdb))-4)])
+        prepped_files_list.extend(xrayprep(pdb, xray_outname))
+        counter += 1 
 
 
     # runs backbone_scan
@@ -1986,10 +1689,6 @@ elif options.prepare == True and options.analyze == False:
               "missing residues...\nTo prevent this, use option"
               " '--permissive'.\n\n##################\n"
               )
-        log.write("\n##################\n\nScanning backbones for gaps"
-                  " and missing residues...\nTo prevent this, use option"
-                  " '--permissive'.\n\n##################\n"
-                  )
               
     bad_files = []
     for prepped_file in prepped_files_list:
@@ -2003,12 +1702,6 @@ elif options.prepare == True and options.analyze == False:
                   " from analysis, due to a gap,\nor atoms being in the " +
                   "wrong order in the file (this breaks the ensemblator).\n"
                   )
-            log.write ("Removing file: " + 
-                       str(prepped_file) + 
-                       " from analysis, due to a gap,\nor atoms being in the" +
-                       " wrong order in the file (this breaks the " +
-                       "ensemblator).\n\n"
-                       )
             bad_files.append(prepped_file)
 
 
@@ -2048,12 +1741,11 @@ elif options.prepare == True and options.analyze == False:
             cline = MuscleCommandline(input="sequences.fasta",
                                       out="muscle_align.fasta"
                                       )    
-            log_str = "\n##################\n\n" + \
+            print( "\n##################\n\n" + \
                       "Running MUSCLE alignment program with the following " +\
                       "command: \n" + str(cline) +\
                       "\n\n##################\n"
-            print log_str
-            log.write(log_str)
+                  )
             
             # RUN MUCSLE
             stdout, stderr = cline()
@@ -2070,43 +1762,14 @@ elif options.prepare == True and options.analyze == False:
 
             # ensure that the seq id is close enough to use
             # if a model is defined
-            
 
-            template = []
-            try:
-                template.extend((options.template).split(","))
-            except:
-                sys.exit("Template must be formated like so:"
-                         " '-chain filename.pdb,chain,model' e.g. "
-                         " '-chain 1q4k.pdb,A,2' or '-chain 1q4k.pdb,A'."
-                        )
-
-            
-            try:
-                try:
-                    template_name = "prepped_" + \
-                                    template[0]\
-                                        [0:(len(template[0]) - 4)] + \
-                                    "_model_" + \
-                                    str(template[2]) + \
-                                    "_chain_" + \
-                                    str(template[1]) + \
-                                    "_alt_A.pdb"
-                # otherwise just use zero
-                except:    
-                    template_name = "prepped_" + \
-                                    template[0]\
-                                        [0:(len(template[0]) - 4)] + \
-                                    "_model_0" + \
-                                    "_chain_" + \
-                                    str(template[1]) + \
-                                    "_alt_A.pdb"
-            except:
-                sys.exit("Template must be formated like so:"
-                         " '-chain filename.pdb,chain,model' e.g. "
-                         " '-chain 1q4k.pdb,A,2' or '-chain 1q4k.pdb,A'."
-                        ) 
-            
+            template_name = "prepped_" + \
+                            options.template + \
+                            "_model_" + \
+                            str(options.model) + \
+                            "_chain_" + \
+                            str(options.chain) + \
+                            "_alt_A.pdb"
             
             
             #empty the good_files list, to refill with the newly good files
@@ -2117,10 +1780,15 @@ elif options.prepare == True and options.analyze == False:
                 try:
                     template = aligned_dict[template_name]
                 except:
-                    sys.exit("Couldn't load template file, probably it was removed"
+                    print("Couldn't load template file, probably it was removed"
                              " after backbone scanning. Try running with the"
                              " --permissive option on, or pick a different "
-                             "template."
+                             "template. Alternativly it is not in the set"
+                             " of files you are building in the ensemble (this"
+                             " is required), or the filename does not end in "
+                             "'.pdb'.\n\n\n Alternativly, you have not"
+                             " selected a correct file, chain, or model ID."
+                             " If there is no chain ID, use 'X'." 
                             )
                 tester = aligned_dict[key]
                 #calculate percent id
@@ -2143,7 +1811,6 @@ elif options.prepare == True and options.analyze == False:
                               str(percent * 100) + "%" +\
                               " identity to the template."
                     print message
-                    log.write(message + "\n")
                     # we removed files, so redo the alignmnet
                     align_counter += 1
          
@@ -2184,15 +1851,10 @@ elif options.prepare == True and options.analyze == False:
           "for use with ensemblator by ensuring that all atoms match in all " + 
           "structures...\n\n##################\n"
           )
-    log.write("\n##################\n\nCombining all files into an ensemble " +
-              "ready for use with ensemblator by ensuring that all atoms match" +
-              " in all structures...\n\n##################\n"
-              )
-
         
 
     # runs eeprep
-    legend_dict = eeprep(good_files)
+    legend_dict = eeprep(good_files, bad_files)
     legend_file = open('model_legend.tsv', 'w')
     legend_file.write('model\tfilename\n')
     counter = 0
@@ -2217,32 +1879,24 @@ elif options.prepare == True and options.analyze == False:
           str(options.output) + 
           "\n\n##################\n"
           )
-    log.write("\n##################\n\nWrote file: " + 
-              str(options.output) + 
-              "\n\n##################\n"
-              )
 
 
     # align all the structures to make the output look nicer
 
     print "\n##################\n\nCalculating overlay...\n\n##################\n"
-    log.write("\n##################\n\n"
-              "Calculating overlay..."
-              "\n\n##################\n"
-              )
     try:
         aligner(options.output)
     except:
         err_str=("The overlay failed. This usually means that there were no"
               " atoms in the ensemble, which in turn usually means that afer"
               " removing the atoms not common to all structures, you were left"
-              " with nothing. Sometimes, a single chain will simply be a few"
-              " continious residues with no gaps, this can be greatly disruptive."
-              " Try rerunning with --permissive set."
-              " Or, even better, remove these bad chains from the analysis.\n\n\n"
+              " with nothing. \n\n\n Sometimes this occurs because all of"
+              " the structures you input have gaps, and you are not"
+              " allowing structures with gaps. Scroll up through"
+              " the log to see if that is the case, and if so, try allowing"
+              " some or all gaps.\n\n\n"
               )
         print(err_str)
-        log.write(err_str)
 
         
         
@@ -2250,52 +1904,47 @@ elif options.prepare == True and options.analyze == False:
     endTime = time.time()
     workTime =  endTime - startTime
     print "\n\nCompleted in: " + str(workTime) + " seconds.\n"
-    log.write( "\n\nCompleted in: " + str(workTime) + " seconds.\n")
 
-    log.close()
 
-    # removes the log file if the user didn't ask for it
-    if options.log == True:
-        pass
-    else:
-        os.remove("prepare_input.log")
 
 
 ################################################################################
 #### Analyze ####
 ################################################################################
 
-elif options.analyze == True and options.prepare == False:
+def analyze(options):
+
+
+    if not os.path.exists(options.pwd):
+        os.makedirs(options.pwd)
+
            
     # mark start time
     startTime = time.time()        
 
     # read in the input
-    pdb = options.input[0]
+    pdb = options.input
     
     # change to the working directory
-    os.chdir(options.pwd)
-    # writes a log file, which will be then deleted if the user didn't ask for it
-    log = open("ensemblator.log", "a")
+    os.chdir(options.pwd) 
     
-    
-    
-    
+    global dcut
     dcut = options.dcut
+    
     pdb_reader = PDBParser(PERMISSIVE = 1, QUIET = True)
     outputname = "global_overlay_" + str(dcut) + ".pdb"
     # use this in the auto analysis, cluster_sep - this is a lazy solution
+    global outputname_all_overlay
     outputname_all_overlay = "global_overlay_" + str(dcut) + ".pdb"
+    
     # this structure variable is constantly referenced by functions.
     # Do not mess around with it lightly.
+    global structure
     structure = pdb_reader.get_structure("temp", pdb) 
 
     print("Iterativly aligning pairwise structures until convergence of cutoff "
           "accepted atoms is reached..."
           )
-    log.write("Iterativly aligning pairwise structures until convergence of "
-              "cutoff accepted atoms is reached...\n"
-              )
 
 
     # first output file, contains info about all the pairs. Used for clustering
@@ -2322,16 +1971,7 @@ elif options.analyze == True and options.prepare == False:
         atoms = 1
         atoms2 = 500
         counter = 0
-               
-        log.write(
-                    "Re-running alignment with cutoff distance of " +
-                    str(dcut) +
-                    " on models " +
-                    str(x) +
-                    " and " +
-                    str(y) +
-                    ":\n"
-                    )   
+
         # do first alignment of the pair, using all atoms
         first_aligner(x,y) 
         # will realign over and over until the list of kept atoms are exactly
@@ -2353,14 +1993,6 @@ elif options.analyze == True and options.prepare == False:
             # aren't all identical to atoms, then the loop will repeat
             atoms2 = dcut_atom_checker(x,y)
             
-        log.write(
-                    "Convergence reached in " +
-                    str(counter) +
-                    " alignments, with " +
-                    str(len(atoms2)) +
-                    " atoms past cutoff distance.\n"
-                    )
-
         # now that a convergent core is found, calculate the stats for this pair
         rms_sub = get_rms_sub(x,y,atoms_to_ignore[str(x) + "," + str(y)])
         rms_all = get_rms_all(x,y)
@@ -2379,7 +2011,6 @@ elif options.analyze == True and options.prepare == False:
                             "\n"
                             )
 
-    log.write("Done.\n")
 
     # self-self pairs, needed to get a complete array later
     # all these stats should be zero
@@ -2403,10 +2034,6 @@ elif options.analyze == True and options.prepare == False:
     print("Identifying common convergant atoms in all pairwise structures, and "
           "realigning original ensemble using only common cutoff accepted atoms..."
           )
-    log.write("Identifying common convergant atoms in all pairwise structures, "
-              "and realigning original ensemble using only common cutoff accepted "
-              "atoms...\n"
-              )
     # get the common elements from the dict of all atoms to ignore from all
     # structures
     removal_list = atom_selector(atoms_to_ignore)
@@ -2416,9 +2043,6 @@ elif options.analyze == True and options.prepare == False:
     print(str(counter) +
           " non-consensus atoms removed from final aligner process."
           )
-    log.write(str(counter) +
-              " non-consensus atoms removed from final aligner process.\n"
-              )
 
     # now re-align the original structure, against the first model, using only the
     # COMMON core atoms atoms
@@ -2427,7 +2051,6 @@ elif options.analyze == True and options.prepare == False:
 
     if error_check != True:
         print("Wrote final overlay as: " + outputname)
-        log.write("Wrote final overlay as: " + outputname + "\n")
 
 
     print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
@@ -2572,14 +2195,35 @@ elif options.analyze == True and options.prepare == False:
 
 
         #### eeLocal calculations
-        # skip if true
         # all methods here are as above, only they only use resnum as keys,
         # so are less complicated
         # they also calculate lodr rather than rmsd, etc
         
-        if options.skiplocal == False:
-            print "Calculating LODR scores for group M:"
-            pairwise_list = combinations(options.groupm, r = 2)
+
+        print "Calculating LODR scores for group M:"
+        pairwise_list = combinations(options.groupm, r = 2)
+        all_lodr_dict = {}
+        lodr_dict = {}
+
+        for x,y in pairwise_list:
+            for resnum in resid_list:        
+                lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                      
+                if resnum in all_lodr_dict:
+                    all_lodr_dict[resnum].append(lodr_dict[resnum])
+                else:
+                    all_lodr_dict[resnum] = list()
+                    all_lodr_dict[resnum].append(lodr_dict[resnum])
+                    
+        if options.avg == False:            
+            group_m_lodr = get_rmsd(all_lodr_dict)
+        else:
+            group_m_lodr = get_mean(all_lodr_dict)    
+                
+        ### calulate LODR among n structures
+        try:
+            pairwise_list = combinations(options.groupn, r = 2)
+            print "Calculating LODR scores for group N:"
             all_lodr_dict = {}
             lodr_dict = {}
 
@@ -2592,97 +2236,75 @@ elif options.analyze == True and options.prepare == False:
                     else:
                         all_lodr_dict[resnum] = list()
                         all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        
+            
             if options.avg == False:            
-                group_m_lodr = get_rmsd(all_lodr_dict)
+                group_n_lodr = get_rmsd(all_lodr_dict)
             else:
-                group_m_lodr = get_mean(all_lodr_dict)    
-                    
-            ### calulate LODR among n structures
-            try:
-                pairwise_list = combinations(options.groupn, r = 2)
-                print "Calculating LODR scores for group N:"
-                all_lodr_dict = {}
-                lodr_dict = {}
+                group_n_lodr = get_mean(all_lodr_dict)
+            ### calulate LODR between m and n structures
+            print "Calculating Inter Group LODR:"
 
-                for x,y in pairwise_list:
-                    for resnum in resid_list:        
-                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
-                              
-                        if resnum in all_lodr_dict:
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            all_lodr_dict[resnum] = list()
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                
-                if options.avg == False:            
-                    group_n_lodr = get_rmsd(all_lodr_dict)
-                else:
-                    group_n_lodr = get_mean(all_lodr_dict)
-                ### calulate LODR between m and n structures
-                print "Calculating Inter Group LODR:"
-
-                inter_list = [x for x in itertools.product(
-                                                            options.groupm,
-                                                            options.groupn
-                                                            )
-                              ]
-              
-                all_lodr_dict = {}
-                lodr_dict = {}
-                for x,y in inter_list:
-                    for resnum in resid_list:        
-                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
-                              
-                        if resnum in all_lodr_dict:
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            all_lodr_dict[resnum] = list()
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                if options.avg == False:
-                    inter_group_lodr = get_rmsd(all_lodr_dict)
-                else:
-                    inter_group_lodr = get_mean(all_lodr_dict) 
+            inter_list = [x for x in itertools.product(
+                                                        options.groupm,
+                                                        options.groupn
+                                                        )
+                          ]
+          
+            all_lodr_dict = {}
+            lodr_dict = {}
+            for x,y in inter_list:
+                for resnum in resid_list:        
+                    lodr_dict[resnum] = eelocal(x,y, int(resnum))
                           
-                print "Calculating Minimum LODR between M and N at each residue:"
-                
-                minimum_lodr_info = get_min(all_lodr_dict)
-                minimum_lodr_index =  minimum_lodr_info["index"]
-                minimum_lodr = minimum_lodr_info["min"]
+                    if resnum in all_lodr_dict:
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        all_lodr_dict[resnum] = list()
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+            if options.avg == False:
+                inter_group_lodr = get_rmsd(all_lodr_dict)
+            else:
+                inter_group_lodr = get_mean(all_lodr_dict) 
+                      
+            print "Calculating Minimum LODR between M and N at each residue:"
+            
+            minimum_lodr_info = get_min(all_lodr_dict)
+            minimum_lodr_index =  minimum_lodr_info["index"]
+            minimum_lodr = minimum_lodr_info["min"]
 
-            except:
-                pass
+        except:
+            pass
 
 
-            # same as eeGlobal
-            eelocal_dict = NestedDict()
-            for resid in resid_list:
+        # same as eeGlobal
+        eelocal_dict = NestedDict()
+        for resid in resid_list:
+            try:
+                eelocal_dict\
+                              ["group_m_lodr"]\
+                              [resid]\
+                              = group_m_lodr[resid]
                 try:
                     eelocal_dict\
-                                  ["group_m_lodr"]\
+                                  ["group_n_lodr"]\
                                   [resid]\
-                                  = group_m_lodr[resid]
-                    try:
-                        eelocal_dict\
-                                      ["group_n_lodr"]\
-                                      [resid]\
-                                      = group_n_lodr[resid]
-                        eelocal_dict\
-                                      ["inter_group_lodr"]\
-                                      [resid]\
-                                      = inter_group_lodr[resid]
-                        eelocal_dict\
-                                      ["minimum_lodr"]\
-                                      [resid]\
-                                      = minimum_lodr[resid]
-                        eelocal_dict\
-                                      ["minimum_lodr_index"]\
-                                      [resid]\
-                                      = str(inter_list[minimum_lodr_index[resid]])
-                    except:
-                        pass
+                                  = group_n_lodr[resid]
+                    eelocal_dict\
+                                  ["inter_group_lodr"]\
+                                  [resid]\
+                                  = inter_group_lodr[resid]
+                    eelocal_dict\
+                                  ["minimum_lodr"]\
+                                  [resid]\
+                                  = minimum_lodr[resid]
+                    eelocal_dict\
+                                  ["minimum_lodr_index"]\
+                                  [resid]\
+                                  = str(inter_list[minimum_lodr_index[resid]])
                 except:
                     pass
+            except:
+                pass
 
 
         # print all the output tables
@@ -2843,59 +2465,58 @@ elif options.analyze == True and options.prepare == False:
         eeglobal_out.close()
         print "Output saved in file 'eeGlobal_out.tsv'."
 
-        # print out the eeLocal output
-        if options.skiplocal == False:
-            eelocal_out = open("eeLocal_out.tsv", 'w')
-            eelocal_out.write("res_id"
-                              "\t"
-                              "intra_m_rms_lodr"
-                              "\t"
-                              "intra_n_rms_lodr"
-                              "\t"
-                              "inter_group_rms_lodr"
-                              "\t"
-                              "minimum_lodr"
-                              "\t"
-                              "mimimum_lodr_pair"
-                              "\n"
-                              )
-            for resid in resid_list:
-                if "group_n_lodr" in eelocal_dict:
-                    eelocal_out.write(str(resid) +
-                                      "\t" +
-                                      str(eelocal_dict["group_m_lodr"][resid]) +
-                                      "\t" +
-                                      str(eelocal_dict["group_n_lodr"][resid]) +
-                                      "\t" +
-                                      str(eelocal_dict\
-                                          ["inter_group_lodr"]\
-                                          [resid]
-                                          ) +
-                                      "\t" +
-                                      str(eelocal_dict["minimum_lodr"][resid]) +
-                                      "\t" +
-                                      str(eelocal_dict\
-                                          ["minimum_lodr_index"]\
-                                          [resid]
-                                          ) +
-                                      "\n"
-                                      )
-                else:
-                    eelocal_out.write(str(resid) +
-                                      "\t" +
-                                      str(eelocal_dict["group_m_lodr"][resid]) +
-                                      "\t" +
-                                      "NA" +
-                                      "\t" +
-                                      "NA" +
-                                      "\t" +
-                                      "NA" +
-                                      "\t" +
-                                      "NA" +
-                                      "\n"
-                                      )
-            eelocal_out.close()
-            print "Output saved in file 'eeLocal_out.tsv'."
+
+        eelocal_out = open("eeLocal_out.tsv", 'w')
+        eelocal_out.write("res_id"
+                          "\t"
+                          "intra_m_rms_lodr"
+                          "\t"
+                          "intra_n_rms_lodr"
+                          "\t"
+                          "inter_group_rms_lodr"
+                          "\t"
+                          "minimum_lodr"
+                          "\t"
+                          "mimimum_lodr_pair"
+                          "\n"
+                          )
+        for resid in resid_list:
+            if "group_n_lodr" in eelocal_dict:
+                eelocal_out.write(str(resid) +
+                                  "\t" +
+                                  str(eelocal_dict["group_m_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict["group_n_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict\
+                                      ["inter_group_lodr"]\
+                                      [resid]
+                                      ) +
+                                  "\t" +
+                                  str(eelocal_dict["minimum_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict\
+                                      ["minimum_lodr_index"]\
+                                      [resid]
+                                      ) +
+                                  "\n"
+                                  )
+            else:
+                eelocal_out.write(str(resid) +
+                                  "\t" +
+                                  str(eelocal_dict["group_m_lodr"][resid]) +
+                                  "\t" +
+                                  "NA" +
+                                  "\t" +
+                                  "NA" +
+                                  "\t" +
+                                  "NA" +
+                                  "\t" +
+                                  "NA" +
+                                  "\n"
+                                  )
+        eelocal_out.close()
+        print "Output saved in file 'eeLocal_out.tsv'."
 
         ### PLOTTING ###
         # don't know what this does
@@ -3026,57 +2647,56 @@ elif options.analyze == True and options.prepare == False:
             plt.close()
             print "eeGlobal plot saved as '" + title + ".png'."
 
-            if options.skiplocal == False:
 
-                print "Plotting eeLocal:"
-                ## eeLocal plot
+            print "Plotting eeLocal:"
+            ## eeLocal plot
 
-                title = "eeLocal"
-                plt.figure()
-                plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                           eelocal_dict["group_m_lodr"].values(),
-                           blue,
-                           label="Group M RMS-LODR",
+            title = "eeLocal"
+            plt.figure()
+            plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                       eelocal_dict["group_m_lodr"].values(),
+                       blue,
+                       label="Group M RMS-LODR",
+                       linewidth=1.5
+                       )
+            try:
+                plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                           eelocal_dict["group_n_lodr"].values(),
+                           green,
+                           label="Group N RMS-LODR",
                            linewidth=1.5
                            )
-                try:
-                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                               eelocal_dict["group_n_lodr"].values(),
-                               green,
-                               label="Group N RMS-LODR",
-                               linewidth=1.5
-                               )
-                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                               eelocal_dict["inter_group_lodr"].values(),
-                               purple, linestyle='--',
-                               label="Inter-group RMS-LODR",
-                               linewidth=1.5
-                               )
-                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                               eelocal_dict["minimum_lodr"].values(),
-                               red,
-                               label="Minimum LODR",
-                               linewidth=1.5
-                               )
-                except:
-                    pass
-                plt.xlabel("Residue Number")
-                plt.ylabel("RMS-LODR")
-                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                             loc=3,
-                             ncol=2,
-                             mode="expand",
-                             borderaxespad=0.
-                             )
-                ax = plt.gca()
-                ax.xaxis.set_minor_locator(minorLocator)
-                ax.xaxis.set_ticks_position('bottom')
-                ax.yaxis.set_ticks_position('left')
-                fig = plt.gcf()
-                fig.canvas.set_window_title(title)
-                plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
-                plt.close()
-                print "eeLocal plot saved as '" + title + ".png'."
+                plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                           eelocal_dict["inter_group_lodr"].values(),
+                           purple, linestyle='--',
+                           label="Inter-group RMS-LODR",
+                           linewidth=1.5
+                           )
+                plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                           eelocal_dict["minimum_lodr"].values(),
+                           red,
+                           label="Minimum LODR",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            plt.xlabel("Residue Number")
+            plt.ylabel("RMS-LODR")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                         loc=3,
+                         ncol=2,
+                         mode="expand",
+                         borderaxespad=0.
+                         )
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.close()
+            print "eeLocal plot saved as '" + title + ".png'."
                 
         # calculated using averages here, so plots should reflect that
         else:
@@ -3132,60 +2752,56 @@ elif options.analyze == True and options.prepare == False:
             print "eeGlobal plot saved as '" + title + ".png'."
 
 
+            print "Plotting eeLocal:"
+            ## eeLocal plot
 
-
-            if options.skiplocal == False:
-
-                print "Plotting eeLocal:"
-                ## eeLocal plot
-
-                title = "eeLocal"
-                plt.figure()
-                plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                           eelocal_dict["group_m_lodr"].values(),
-                           blue,
-                           label="Group M Mean-LODR",
+            title = "eeLocal"
+            plt.figure()
+            plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                       eelocal_dict["group_m_lodr"].values(),
+                       blue,
+                       label="Group M Mean-LODR",
+                       linewidth=1.5
+                       )
+            try:
+                plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                           eelocal_dict["group_n_lodr"].values(),
+                           green,
+                           label="Group N Mean-LODR",
                            linewidth=1.5
                            )
-                try:
-                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                               eelocal_dict["group_n_lodr"].values(),
-                               green,
-                               label="Group N Mean-LODR",
-                               linewidth=1.5
-                               )
-                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                               eelocal_dict["inter_group_lodr"].values(),
-                               purple,
-                               linestyle='--',
-                               label="Inter-group Mean-LODR",
-                               linewidth=1.5
-                               )
-                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                               eelocal_dict["minimum_lodr"].values(),
-                               red,
-                               label="Minimum LODR",
-                               linewidth=1.5
-                               )
-                except:
-                    pass
-                plt.xlabel("Residue Number")
-                plt.ylabel("RMS-LODR")
-                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                             loc=3,
-                             ncol=2,
-                             mode="expand",
-                             borderaxespad=0.
-                             )
-                ax = plt.gca()
-                ax.xaxis.set_minor_locator(minorLocator)
-                ax.xaxis.set_ticks_position('bottom')
-                ax.yaxis.set_ticks_position('left')
-                fig = plt.gcf()
-                fig.canvas.set_window_title(title)
-                plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
-                plt.close()
-                print "eeLocal plot saved as '" + title + ".png'."
+                plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                           eelocal_dict["inter_group_lodr"].values(),
+                           purple,
+                           linestyle='--',
+                           label="Inter-group Mean-LODR",
+                           linewidth=1.5
+                           )
+                plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                           eelocal_dict["minimum_lodr"].values(),
+                           red,
+                           label="Minimum LODR",
+                           linewidth=1.5
+                           )
+            except:
+                pass
+            plt.xlabel("Residue Number")
+            plt.ylabel("RMS-LODR")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                         loc=3,
+                         ncol=2,
+                         mode="expand",
+                         borderaxespad=0.
+                         )
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.close()
+            print "eeLocal plot saved as '" + title + ".png'."
 
         # this will set the b-factors in the final overlay to be the
         # value of the inter_group b factor. Can be nice for visualizing
@@ -3609,123 +3225,121 @@ elif options.analyze == True and options.prepare == False:
 
 
             # eeLocal calculations
-            if options.skiplocal == False:
+            try:
+                print "Calculating LODR scores for group M:"
+                pairwise_list = combinations(group_m, r = 2)
+                all_lodr_dict = {}
+                lodr_dict = {}
 
-                try:
-                    print "Calculating LODR scores for group M:"
-                    pairwise_list = combinations(group_m, r = 2)
-                    all_lodr_dict = {}
-                    lodr_dict = {}
-
-                    for x,y in pairwise_list:
-                        for resnum in resid_list:        
-                            lodr_dict[resnum] = eelocal(x,y, int(resnum))
-                                  
-                            if resnum in all_lodr_dict:
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                            else:
-                                all_lodr_dict[resnum] = list()
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                                
-                    if options.avg == False:            
-                        group_m_lodr = get_rmsd(all_lodr_dict)
-                    else:
-                        group_m_lodr = get_mean(all_lodr_dict)    
-                except:
-                    pass
-                # calulate LODR among n structures
-                try:
-                    pairwise_list = combinations(group_n, r = 2)
-                    print "Calculating LODR scores for group N:"
-                    all_lodr_dict = {}
-                    lodr_dict = {}
-
-                    for x,y in pairwise_list:
-                        for resnum in resid_list:        
-                            lodr_dict[resnum] = eelocal(x,y, int(resnum))
-                                  
-                            if resnum in all_lodr_dict:
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                            else:
-                                all_lodr_dict[resnum] = list()
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                    
-                    if options.avg == False:            
-                        group_n_lodr = get_rmsd(all_lodr_dict)
-                    else:
-                        group_n_lodr = get_mean(all_lodr_dict)
-                except:
-                    pass
-                try:
-                    # calulate LODR between m and n structures
-                    print "Calculating Inter Group LODR:"
-                    inter_list = [x for x in itertools.product(group_m, group_n)]
-                  
-                    all_lodr_dict = {}
-                    lodr_dict = {}
-                    for x,y in inter_list:
-                        for resnum in resid_list:        
-                            lodr_dict[resnum] = eelocal(x,y, int(resnum))
-                                  
-                            if resnum in all_lodr_dict:
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                            else:
-                                all_lodr_dict[resnum] = list()
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                    if options.avg == False:
-                        inter_group_lodr = get_rmsd(all_lodr_dict)
-                    else:
-                        inter_group_lodr = get_mean(all_lodr_dict) 
+                for x,y in pairwise_list:
+                    for resnum in resid_list:        
+                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
                               
-                    print("Calculating Minimum LODR between " +
-                          "M and N at each residue:"
-                          )
-                    
-                    minimum_lodr_info = get_min(all_lodr_dict)
-                    minimum_lodr_index =  minimum_lodr_info["index"]
-                    minimum_lodr = minimum_lodr_info["min"]
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                            
+                if options.avg == False:            
+                    group_m_lodr = get_rmsd(all_lodr_dict)
+                else:
+                    group_m_lodr = get_mean(all_lodr_dict)    
+            except:
+                pass
+            # calulate LODR among n structures
+            try:
+                pairwise_list = combinations(group_n, r = 2)
+                print "Calculating LODR scores for group N:"
+                all_lodr_dict = {}
+                lodr_dict = {}
 
-                except:
-                    pass
+                for x,y in pairwise_list:
+                    for resnum in resid_list:        
+                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                              
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                
+                if options.avg == False:            
+                    group_n_lodr = get_rmsd(all_lodr_dict)
+                else:
+                    group_n_lodr = get_mean(all_lodr_dict)
+            except:
+                pass
+            try:
+                # calulate LODR between m and n structures
+                print "Calculating Inter Group LODR:"
+                inter_list = [x for x in itertools.product(group_m, group_n)]
+              
+                all_lodr_dict = {}
+                lodr_dict = {}
+                for x,y in inter_list:
+                    for resnum in resid_list:        
+                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
+                              
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                if options.avg == False:
+                    inter_group_lodr = get_rmsd(all_lodr_dict)
+                else:
+                    inter_group_lodr = get_mean(all_lodr_dict) 
+                          
+                print("Calculating Minimum LODR between " +
+                      "M and N at each residue:"
+                      )
+                
+                minimum_lodr_info = get_min(all_lodr_dict)
+                minimum_lodr_index =  minimum_lodr_info["index"]
+                minimum_lodr = minimum_lodr_info["min"]
+
+            except:
+                pass
 
 
 
-                eelocal_dict = NestedDict()
-                for resid in resid_list:
+            eelocal_dict = NestedDict()
+            for resid in resid_list:
+                try:
                     try:
-                        try:
-                            eelocal_dict\
-                                          ["group_m_lodr"]\
-                                          [resid]\
-                                          = group_m_lodr[resid]
-                        except:
-                            pass
-                        try:
-                            eelocal_dict\
-                                          ["group_n_lodr"]\
-                                          [resid]\
-                                          = group_n_lodr[resid]
-                        except:
-                            pass
-                        try:                        
-                            eelocal_dict\
-                                          ["inter_group_lodr"]\
-                                          [resid]\
-                                          = inter_group_lodr[resid]
-                            eelocal_dict\
-                                          ["minimum_lodr"]\
-                                          [resid]\
-                                          = minimum_lodr[resid]
-                            eelocal_dict\
-                                          ["minimum_lodr_index"]\
-                                          [resid]\
-                                          = str(
-                                              inter_list[minimum_lodr_index[resid]]
-                                              )
-                        except:
-                            pass
+                        eelocal_dict\
+                                      ["group_m_lodr"]\
+                                      [resid]\
+                                      = group_m_lodr[resid]
                     except:
                         pass
+                    try:
+                        eelocal_dict\
+                                      ["group_n_lodr"]\
+                                      [resid]\
+                                      = group_n_lodr[resid]
+                    except:
+                        pass
+                    try:                        
+                        eelocal_dict\
+                                      ["inter_group_lodr"]\
+                                      [resid]\
+                                      = inter_group_lodr[resid]
+                        eelocal_dict\
+                                      ["minimum_lodr"]\
+                                      [resid]\
+                                      = minimum_lodr[resid]
+                        eelocal_dict\
+                                      ["minimum_lodr_index"]\
+                                      [resid]\
+                                      = str(
+                                          inter_list[minimum_lodr_index[resid]]
+                                          )
+                    except:
+                        pass
+                except:
+                    pass
 
 
 
@@ -3880,70 +3494,69 @@ elif options.analyze == True and options.prepare == False:
             eeglobal_out.close()
             print "Output saved in file 'eeGlobal_out" + outputname + ".tsv'."
 
-            if options.skiplocal == False:
-                eelocal_out = open("eeLocal_out" + outputname + ".tsv", 'w')
-                eelocal_out.write("res_id"
-                                  "\t"
-                                  "intra_m_rms_lodr"
-                                  "\t"
-                                  "intra_n_rms_lodr"
-                                  "\t"
-                                  "inter_group_rms_lodr"
-                                  "\t"
-                                  "minimum_lodr"
-                                  "\t"
-                                  "mimimum_lodr_pair"
-                                  "\n"
-                                  )
+            eelocal_out = open("eeLocal_out" + outputname + ".tsv", 'w')
+            eelocal_out.write("res_id"
+                              "\t"
+                              "intra_m_rms_lodr"
+                              "\t"
+                              "intra_n_rms_lodr"
+                              "\t"
+                              "inter_group_rms_lodr"
+                              "\t"
+                              "minimum_lodr"
+                              "\t"
+                              "mimimum_lodr_pair"
+                              "\n"
+                              )
 
-                for resid in resid_list:
-                    if "group_n_lodr" in eelocal_dict:
-                        eelocal_out.write(str(resid) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["group_m_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["group_n_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["inter_group_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["minimum_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["minimum_lodr_index"]\
-                                              [resid]
-                                              ) +
-                                          "\n"
-                                          )
-                    else:
-                        eelocal_out.write(str(resid) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["group_m_lodr"]\
-                                              [resid]) +
-                                          "\t" +
-                                          "NA" +
-                                          "\t" +
-                                          "NA" +
-                                          "\t" +
-                                          "NA" +
-                                          "\t" +
-                                          "NA" +
-                                          "\n"
-                                          )
-                eelocal_out.close()
-                print "Output saved in file 'eeLocal_out" + outputname + ".tsv'."
+            for resid in resid_list:
+                if "group_n_lodr" in eelocal_dict:
+                    eelocal_out.write(str(resid) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_m_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_n_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["inter_group_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["minimum_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["minimum_lodr_index"]\
+                                          [resid]
+                                          ) +
+                                      "\n"
+                                      )
+                else:
+                    eelocal_out.write(str(resid) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_m_lodr"]\
+                                          [resid]) +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\n"
+                                      )
+            eelocal_out.close()
+            print "Output saved in file 'eeLocal_out" + outputname + ".tsv'."
 
             ### PLOTTING ###
 
@@ -4087,65 +3700,61 @@ elif options.analyze == True and options.prepare == False:
                 print "eeGlobal plot saved as '" + title + ".png'."
 
 
+                print "Plotting eeLocal:"
+                ## eeLocal plot
 
-
-                if options.skiplocal == False:
-
-                    print "Plotting eeLocal:"
-                    ## eeLocal plot
-
-                    title = "eeLocal" + outputname
-                    plt.figure()
-                    try:
-                        plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                                   eelocal_dict["group_m_lodr"].values(),
-                                   blue,
-                                   label="Group M RMS-LODR",
-                                   linewidth=1.5
-                                   )
-                    except: 
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                                   eelocal_dict["group_n_lodr"].values(),
-                                   green, label="Group N RMS-LODR",
-                                   linewidth=1.5
-                                   )
-                    except:
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                                   eelocal_dict["inter_group_lodr"].values(),
-                                   purple,
-                                   linestyle='--',
-                                   label="Inter-group RMS-LODR",
-                                   linewidth=1.5
-                                   )
-                        plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                                   eelocal_dict["minimum_lodr"].values(),
-                                   red,
-                                   label="Minimum LODR",
-                                   linewidth=1.5
-                                   )
-                    except:
-                        pass
-                    plt.xlabel("Residue Number")
-                    plt.ylabel("RMS-LODR")
-                    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                                 loc=3,
-                                 ncol=2,
-                                 mode="expand",
-                                 borderaxespad=0.
-                                 )
-                    ax = plt.gca()
-                    ax.xaxis.set_minor_locator(minorLocator)
-                    ax.xaxis.set_ticks_position('bottom')
-                    ax.yaxis.set_ticks_position('left')
-                    fig = plt.gcf()
-                    fig.canvas.set_window_title(title)
-                    plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
-                    plt.close()
-                    print "eeLocal plot saved as '" + title + ".png'."
+                title = "eeLocal" + outputname
+                plt.figure()
+                try:
+                    plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                               eelocal_dict["group_m_lodr"].values(),
+                               blue,
+                               label="Group M RMS-LODR",
+                               linewidth=1.5
+                               )
+                except: 
+                    pass
+                try:
+                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                               eelocal_dict["group_n_lodr"].values(),
+                               green, label="Group N RMS-LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                try:
+                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                               eelocal_dict["inter_group_lodr"].values(),
+                               purple,
+                               linestyle='--',
+                               label="Inter-group RMS-LODR",
+                               linewidth=1.5
+                               )
+                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                               eelocal_dict["minimum_lodr"].values(),
+                               red,
+                               label="Minimum LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                plt.xlabel("Residue Number")
+                plt.ylabel("RMS-LODR")
+                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                             loc=3,
+                             ncol=2,
+                             mode="expand",
+                             borderaxespad=0.
+                             )
+                ax = plt.gca()
+                ax.xaxis.set_minor_locator(minorLocator)
+                ax.xaxis.set_ticks_position('bottom')
+                ax.yaxis.set_ticks_position('left')
+                fig = plt.gcf()
+                fig.canvas.set_window_title(title)
+                plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+                plt.close()
+                print "eeLocal plot saved as '" + title + ".png'."
 
             else:
 
@@ -4204,65 +3813,61 @@ elif options.analyze == True and options.prepare == False:
                 print "eeGlobal plot saved as '" + title + ".png'."
 
 
+                print "Plotting eeLocal:"
+                ## eeLocal plot
 
-
-                if options.skiplocal == False:
-
-                    print "Plotting eeLocal:"
-                    ## eeLocal plot
-
-                    title = "eeLocal" + outputname
-                    plt.figure()
-                    try:
-                        plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                                   eelocal_dict["group_m_lodr"].values(),
-                                   blue, label="Group M Mean-LODR",
-                                   linewidth=1.5
-                                   )
-                    except:
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                                   eelocal_dict["group_n_lodr"].values(),
-                                   green,
-                                   label="Group N Mean-LODR",
-                                   linewidth=1.5
-                                   )
-                    except:
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                                   eelocal_dict["inter_group_lodr"].values(),
-                                   purple,
-                                   linestyle='--',
-                                   label="Inter-group Mean-LODR",
-                                   linewidth=1.5
-                                   )
-                        plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                                   eelocal_dict["minimum_lodr"].values(),
-                                   red,
-                                   label="Minimum LODR",
-                                   linewidth=1.5
-                                   )
-                    except:
-                        pass
-                    plt.xlabel("Residue Number")
-                    plt.ylabel("RMS-LODR")
-                    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                                 loc=3,
-                                 ncol=2,
-                                 mode="expand",
-                                 borderaxespad=0.
-                                 )
-                    ax = plt.gca()
-                    ax.xaxis.set_minor_locator(minorLocator)
-                    ax.xaxis.set_ticks_position('bottom')
-                    ax.yaxis.set_ticks_position('left')
-                    fig = plt.gcf()
-                    fig.canvas.set_window_title(title)
-                    plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
-                    plt.close()
-                    print "eeLocal plot saved as '" + title + ".png'."
+                title = "eeLocal" + outputname
+                plt.figure()
+                try:
+                    plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                               eelocal_dict["group_m_lodr"].values(),
+                               blue, label="Group M Mean-LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                try:
+                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                               eelocal_dict["group_n_lodr"].values(),
+                               green,
+                               label="Group N Mean-LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                try:
+                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                               eelocal_dict["inter_group_lodr"].values(),
+                               purple,
+                               linestyle='--',
+                               label="Inter-group Mean-LODR",
+                               linewidth=1.5
+                               )
+                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                               eelocal_dict["minimum_lodr"].values(),
+                               red,
+                               label="Minimum LODR",
+                               linewidth=1.5
+                               )
+                except:
+                    pass
+                plt.xlabel("Residue Number")
+                plt.ylabel("RMS-LODR")
+                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                             loc=3,
+                             ncol=2,
+                             mode="expand",
+                             borderaxespad=0.
+                             )
+                ax = plt.gca()
+                ax.xaxis.set_minor_locator(minorLocator)
+                ax.xaxis.set_ticks_position('bottom')
+                ax.yaxis.set_ticks_position('left')
+                fig = plt.gcf()
+                fig.canvas.set_window_title(title)
+                plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+                plt.close()
+                print "eeLocal plot saved as '" + title + ".png'."
 
 
 
@@ -4363,15 +3968,736 @@ elif options.analyze == True and options.prepare == False:
     endTime = time.time()
     workTime =  endTime - startTime
     print "\nEverything completed in: " + str(workTime) + " seconds.\n"
-    log.write( "\nEverything completed in: " + str(workTime) + " seconds.\n")
-    log.close()
-    # removes the log file if the user didn't ask for it
-    if options.log == True:
-        pass
-    else:
-        os.remove("ensemblator.log")
+
 
 
 
     # Done!
         
+        
+        
+        
+#### GUI STUFF ####        
+        
+class Utility:
+    def __init__(self):
+        self.applocation = os.path.dirname(sys.argv[0]);
+        self.last_dir_accessed = os.path.dirname(sys.argv[0]);
+
+    def select_output_dir(self,label_to_update):
+        dir_to_save = tkFileDialog.askdirectory(initialdir = self.last_dir_accessed, title = "Select output directory.");
+        dir_to_save_label = "..." + dir_to_save[len(dir_to_save) - 22:]
+        
+        
+        
+        label_to_update["text"] = dir_to_save_label
+        return(dir_to_save);
+
+    def move_files(self, from_to_dict, base_path):
+        for from_file in from_to_dict:
+            if(os.path.isfile(os.path.join(base_path,from_file))):
+                shutil.move(os.path.join(base_path,from_file), os.path.join(base_path,from_to_dict[from_file]));
+
+    def select_input_files(self, min_number, label_to_update):
+        chosenfiles = tkFileDialog.askopenfilename(initialdir = self.last_dir_accessed, multiple = True, title="Select input pdb files.");
+        toRet = list();
+
+        firstname = os.path.basename(chosenfiles[0]);
+        lastname = os.path.basename(chosenfiles[len(chosenfiles)-1]);
+        label_to_update["text"] = firstname + " ... " + lastname
+        self.last_dir_accessed = os.path.dirname(chosenfiles[0]);
+        toRet = chosenfiles;
+
+        return(toRet);
+
+    def select_input_file(self, label_to_update):
+        chosenfile = tkFileDialog.askopenfilename(initialdir = self.last_dir_accessed, multiple = False, title="Select template file. Dissimilar chains will be removed from the ensemble.");
+        toRet = "";
+        if(chosenfile != ""):
+            firstname = os.path.basename(chosenfile);
+            label_to_update["text"] = firstname
+            self.last_dir_accessed = os.path.dirname(chosenfile);
+            toRet = chosenfile;
+        return(toRet);
+        
+    def select_input_ensemble(self, label_to_update):
+        chosenfile = tkFileDialog.askopenfilename(initialdir = self.last_dir_accessed, multiple = False, title="Select input ensemble (must have been prepared using the Ensemblator.");
+        toRet = "";
+        if(chosenfile != ""):
+            firstname = os.path.basename(chosenfile);
+            label_to_update["text"] = firstname
+            self.last_dir_accessed = os.path.dirname(chosenfile);
+            toRet = chosenfile;
+        return(toRet);
+
+
+    def prepare_input_command_run(self, options, label_to_update, window_to_update):
+       
+        try:
+            prepare_input(options)
+        except Exception as e:
+            tkMessageBox.showerror("Oops." + str(e));
+
+        label_to_update["text"] = "Done!";
+        window_to_update.update();
+    
+    def analyze_command_run(self, options, label_to_update, window_to_update):
+       
+        try:
+            analyze(options)
+        except Exception as e:
+            tkMessageBox.showerror("Oops." + str(e));
+
+        label_to_update["text"] = "Done!";
+        window_to_update.update();   
+        
+
+class MainRoot:
+    def __init__(self):
+        self.rootWindow = Tk();
+        self.rootWindow.wm_title("The Ensemblator");
+        self.setup_gui();
+        self.utility = Utility();                
+        self.rootWindow.mainloop();
+
+    def setup_gui(self):
+        self.add_row("Prepare Input", 
+                     "Prepare ensemble for analysis.", 
+                     self.prepare, 
+                     0
+                     )
+        self.add_row("Analyze", 
+                     "Analyze prepared ensemble.", 
+                     self.analyze, 
+                     1
+                     )
+        self.add_row("Exit", 
+                     "Exit application.", 
+                     self.exit, 
+                     2
+                     )
+        
+        t1 = Text(self.rootWindow)
+        sys.stdout = TextRedirector(t1, "stdout")
+        sys.stderr = TextRedirector(t1, "stderr")
+        t1.grid(row = 0, rowspan = 3, column = 2, sticky=E)
+        
+        
+    def add_row(self, button_name, label_text, func_to_call, rownum):
+        
+        frame1 = Frame(self.rootWindow);
+        #frame1.grid(row=0, column = 0);
+        fr1_button = Button(self.rootWindow, 
+                            text = button_name, 
+                            command = func_to_call
+                            )
+        fr1_button.grid(row = rownum, column = 0, sticky = E+W);
+        fr1_label = Label(self.rootWindow, text = label_text);
+        fr1_label.grid(row = rownum, column = 1, sticky = W);
+
+    def prepare(self):
+        subwindow = Prepare(self.utility);
+    def analyze(self):
+        subwindow = Analyze(self.utility);
+    def exit(self):
+        sys.exit("Have a nice day!")
+
+
+
+class Prepare:
+    def __init__(self, utility):
+        self.utility = utility;
+        self.rootWindow = Tk();
+        self.rootWindow.wm_title("Prepare Input");
+        self.output = StringVar(self.rootWindow);
+        self.output.set("prepared_ensemble.pdb");
+        self.break_num = IntVar(self.rootWindow);
+        self.break_num.set(0);
+        self.gap_setting = StringVar(self.rootWindow);
+        self.gap_setting.set("None");
+        self.align = IntVar(self.rootWindow)
+        self.align.set(0)
+        self.template = ""
+        self.chain = StringVar(self.rootWindow)
+        self.chain.set("X")
+        self.model = StringVar(self.rootWindow)
+        self.model.set("0")
+        self.percent = StringVar(self.rootWindow)
+        self.percent.set("70")
+
+        
+        self.inputfiles = list();        
+        self.dir_to_save = "";
+        self.setup_gui();
+        self.rootWindow.mainloop();
+        
+    def setup_gui(self):
+        
+        select_button = Button(self.rootWindow, 
+                               text = "Select Input Files",
+                               command = self.select_files
+                               )
+        select_button.grid(row=0, 
+                           column = 0, 
+                           columnspan = 2, 
+                           sticky = E+W
+                           );
+        
+        files_selected_label = Label(self.rootWindow, 
+                                     text = "Files Selected: "
+                                     )
+        files_selected_label.grid(row = 1, 
+                                  column = 0, 
+                                  sticky = W
+                                  )
+        self.files_selected = Label(self.rootWindow, 
+                                    text = "None           "
+                                    )
+        self.files_selected.grid(row = 1, 
+                                 column = 1, 
+                                 columnspan = 3, 
+                                 sticky = W
+                                 )
+        
+        
+        pwd_button = Button(self.rootWindow, 
+                            text = "Select Working Directory", 
+                            command = self.select_pwd
+                            )
+        pwd_button.grid(row=2, 
+                        column = 0, 
+                        columnspan = 2, 
+                        sticky = E+W
+                        )
+        
+        pwd_selected_label = Label(self.rootWindow, 
+                                   text = "Working Directory: "
+                                   )
+        pwd_selected_label.grid(row = 3, 
+                                column = 0, 
+                                sticky = W
+                                )
+        self.pwd_selected = Label(self.rootWindow, 
+                                  text = "None           "
+                                  )
+        self.pwd_selected.grid(row = 3,
+                               column = 1, 
+                               columnspan = 3, 
+                               sticky = W
+                               )
+        
+        
+        output_label = Label(self.rootWindow, 
+                             text = "Ensemble output filename: "
+                             )
+        output_label.grid(row = 4, 
+                          column = 0, 
+                          sticky = W
+                          )
+        output = Entry(self.rootWindow, 
+                       textvariable = self.output
+                       )
+        output.grid(row = 4, 
+                    column = 1, 
+                    sticky=W
+                    )
+        
+
+        gaps_label = Label(self.rootWindow, 
+                           text = "Chain-breaks permitted? "
+                           )
+        gaps_label.grid(row = 5, 
+                        column = 0, 
+                        sticky = W
+                        )
+        gaps_dropdown = OptionMenu(self.rootWindow, 
+                                   self.gap_setting, 
+                                   "None", 
+                                   "Some", 
+                                   "All", 
+                                   command=self.Semipermissive
+                                   )
+        gaps_dropdown.grid(row = 5, 
+                           column = 1, 
+                           sticky = E
+                           )
+
+        break_num_label = Label(self.rootWindow, 
+                                text = "# of chain-breaks permitted: "
+                                )
+        break_num_label.grid(row = 6, 
+                             column = 0, 
+                             sticky = W
+                             )
+        self.break_num_entry = Entry(self.rootWindow, 
+                                     textvariable = self.break_num
+                                     )
+        self.break_num_entry.grid(row = 6, 
+                                  column = 1, 
+                                  sticky=W
+                                  )
+        self.break_num_entry.configure(state='disable')
+
+
+        align_checkbutton = Checkbutton(self.rootWindow, 
+                                        text = "Perform sequence alignment", 
+                                        variable = self.align, 
+                                        command = self.align_check
+                                        )
+        align_checkbutton.grid(row = 7, 
+                               column = 0, 
+                               sticky = W+E
+                               )
+
+
+
+
+        self.template_entry = Button(self.rootWindow, 
+                                     text = "Select Template File",
+                                     command = self.select_file
+                                     )
+        self.template_entry.grid(row = 8, 
+                                  column = 0, 
+                                  sticky=E
+                                  )
+        self.template_entry.configure(state='disable')
+
+        self.template_selected = Label(self.rootWindow, 
+                                    text = "None           "
+                                    )
+        self.template_selected.grid(row = 8, 
+                                 column = 1, 
+                                 columnspan = 3, 
+                                 sticky = W
+                                 )
+
+
+        chain_label = Label(self.rootWindow, 
+                                text = "Chain ID for template: "
+                                )
+        chain_label.grid(row = 9, 
+                             column = 0, 
+                             sticky = W
+                             )
+        self.chain_entry = Entry(self.rootWindow, 
+                                     textvariable = self.chain
+                                     )
+        self.chain_entry.grid(row = 9, 
+                                  column = 1, 
+                                  sticky=W
+                                  )
+        self.chain_entry.configure(state='disable')
+
+
+
+
+        model_label = Label(self.rootWindow, 
+                                text = "Model ID for template: "
+                                )
+        model_label.grid(row = 10, 
+                             column = 0, 
+                             sticky = W
+                             )
+        self.model_entry = Entry(self.rootWindow,
+                                 text = "0", 
+                                 textvariable = self.model
+                                     )
+        self.model_entry.grid(row = 10, 
+                                  column = 1, 
+                                  sticky=W
+                                  )
+        self.model_entry.configure(state='disable')
+
+        percent_label = Label(self.rootWindow, 
+                                text = "Percent ID Cutoff: "
+                                )
+        percent_label.grid(row = 11, 
+                             column = 0, 
+                             sticky = W
+                             )
+        self.percent_entry = Entry(self.rootWindow,
+                                   text = "0.7", 
+                                   textvariable = self.percent
+                                   )
+        self.percent_entry.grid(row = 11, 
+                                  column = 1, 
+                                  sticky=W
+                                  )
+        self.percent_entry.configure(state='disable')
+
+        
+        
+        go_button = Button(self.rootWindow, text = "Go!", command = self.execute);
+        go_button.grid(row=12, column = 0, columnspan = 2, sticky = E+W);
+
+        status_label = Label(self.rootWindow, text = "Status: ");
+        status_label.grid(row = 13, column = 0, sticky = W);
+        self.status = Label(self.rootWindow, text = "Waiting");
+        self.status.grid(row = 13, column = 1, columnspan = 3, sticky = W);
+
+
+    def align_check(self):
+        if self.align.get() == 1:
+            self.template_entry.configure(state = 'normal')
+            self.chain_entry.configure(state = 'normal')
+            self.model_entry.configure(state = 'normal')
+            self.percent_entry.configure(state = 'normal')
+        else:
+            self.template_entry.configure(state = 'disable')
+            self.chain_entry.configure(state = 'disable')
+            self.model_entry.configure(state = 'disable')
+            self.percent_entry.configure(state = 'disable')
+
+    def Semipermissive(self, event):
+        if self.gap_setting.get() == "Some":
+            self.break_num_entry.configure(state='normal')
+        else:
+            self.break_num_entry.configure(state='disable')
+        
+        
+    def select_files(self):
+        self.status["text"] = "Waiting";
+        self.inputfiles = self.utility.select_input_files(1,self.files_selected)
+
+    def select_file(self):
+        self.status["text"] = "Waiting";
+        self.template = self.utility.select_input_file(self.template_selected)
+        
+    def select_pwd(self):
+        self.status["text"] = "Waiting";
+        self.dir_to_save = self.utility.select_output_dir(self.pwd_selected)    
+   
+    def execute(self):
+        self.status["text"] = "Waiting";
+
+        break_num = int(self.break_num.get());
+        gap_setting = self.gap_setting.get();
+
+
+
+        ## Manually specify the arguments!
+        
+        # shared arguments
+        options.pwd = self.dir_to_save
+        
+        # prepare input arguments
+        options.input = self.inputfiles
+        options.output = str(self.output.get())
+        if gap_setting == "None":
+            options.permissive = False
+            options.semipermissive = 0
+        elif gap_setting == "All":
+            options.permissive = True
+            options.semipermissive = 0
+        elif gap_setting == "Some":
+            options.permissive = False
+            options.semipermissive = break_num
+        else:
+            options.permissive = False
+            options.semipermissive = 0        
+        
+        
+        if self.align.get() == 1:
+            options.align = True
+            options.template = os.path.basename(self.template)\
+                [0:(len(os.path.basename(self.template)) - 4)]
+            
+            options.chain = self.chain.get()
+            options.model = self.model.get()
+            options.percent = float(self.percent.get())
+            
+        else:
+            options.align = False
+            
+
+        
+        if(self.dir_to_save != "" and len(self.inputfiles) > 0):
+            if (self.align.get() == 1 and self.template != "") \
+                or (self.align.get() == 0):            
+                self.utility.prepare_input_command_run(options, 
+                                                       self.status, 
+                                                       self.rootWindow
+                                                       )
+
+
+
+
+
+class Analyze:
+    def __init__(self, utility):
+        self.utility = utility;
+        self.rootWindow = Tk();
+        self.rootWindow.wm_title("Analyze Ensemble");
+        self.dcut = StringVar(self.rootWindow);
+        self.dcut.set("2.5");
+        self.ensemble = ""
+        self.groupm = StringVar(self.rootWindow)
+        self.groupm.set("")
+        self.groupn = StringVar(self.rootWindow)
+        self.groupn.set("")
+        self.maxclust = IntVar(self.rootWindow)
+        self.maxclust.set(6)
+        self.auto = IntVar(self.rootWindow)
+        self.auto.set(0)
+        self.avg = IntVar(self.rootWindow)
+        self.avg.set(0)
+        self.color = IntVar(self.rootWindow)
+        self.color.set(0)        
+        self.dir_to_save = "";
+        self.setup_gui();
+        self.rootWindow.mainloop();
+        
+    def setup_gui(self):
+        
+        
+        pwd_button = Button(self.rootWindow, 
+                            text = "Select Working Directory", 
+                            command = self.select_pwd
+                            )
+        pwd_button.grid(row=0, 
+                        column = 0, 
+                        columnspan = 2, 
+                        sticky = E+W
+                        )
+        
+        pwd_selected_label = Label(self.rootWindow, 
+                                   text = "Working Directory: "
+                                   )
+        pwd_selected_label.grid(row = 1, 
+                                column = 0, 
+                                sticky = W
+                                )
+        self.pwd_selected = Label(self.rootWindow, 
+                                  text = "None           "
+                                  )
+        self.pwd_selected.grid(row = 1,
+                               column = 1, 
+                               columnspan = 3, 
+                               sticky = W
+                               )
+        
+
+        
+        select_button = Button(self.rootWindow, 
+                               text = "Select Input Ensemble",
+                               command = self.select_ensemble
+                               )
+        select_button.grid(row=2, 
+                           column = 0, 
+                           columnspan = 2, 
+                           sticky = E+W
+                           );
+        
+        file_selected_label = Label(self.rootWindow, 
+                                     text = "Ensemble Selected: "
+                                     )
+        file_selected_label.grid(row = 3, 
+                                  column = 0, 
+                                  sticky = W
+                                  )
+        self.ensemble_selected = Label(self.rootWindow, 
+                                    text = "None           "
+                                    )
+        self.ensemble_selected.grid(row = 3, 
+                                 column = 1, 
+                                 columnspan = 3, 
+                                 sticky = W
+                                 )
+        
+               
+        
+        dcut_label = Label(self.rootWindow, 
+                             text = "Cutoff distance for core atoms: "
+                             )
+        dcut_label.grid(row = 4, 
+                          column = 0, 
+                          sticky = W
+                          )
+        dcut = Entry(self.rootWindow, 
+                       textvariable = self.dcut
+                       )
+        dcut.grid(row = 4, 
+                    column = 1, 
+                    sticky=W
+                    )
+        
+
+        groupm_label = Label(self.rootWindow, 
+                                text = "Group M models: "
+                                )
+        groupm_label.grid(row = 5, 
+                             column = 0, 
+                             sticky = W
+                             )
+        self.groupm_entry = Entry(self.rootWindow, 
+                                     textvariable = self.groupm
+                                     )
+        self.groupm_entry.grid(row = 5, 
+                                  column = 1, 
+                                  sticky=W
+                                  )
+
+
+        groupn_label = Label(self.rootWindow, 
+                                text = "Group N models: "
+                                )
+        groupn_label.grid(row = 6, 
+                             column = 0, 
+                             sticky = W
+                             )
+        self.groupn_entry = Entry(self.rootWindow,
+                                 text = "0", 
+                                 textvariable = self.groupn
+                                     )
+        self.groupn_entry.grid(row = 6, 
+                                  column = 1, 
+                                  sticky=W
+                                  )
+
+
+
+
+
+
+        auto_checkbutton = Checkbutton(self.rootWindow, 
+                                        text = "Perform automatic clustering", 
+                                        variable = self.auto, 
+                                        command = self.auto_check
+                                        )
+        auto_checkbutton.grid(row = 7, 
+                               column = 0,
+                               columnspan = 2,
+                               sticky = W
+                               )
+
+
+        maxclust_label = Label(self.rootWindow, 
+                                text = "Max # of clusters to search for: "
+                                )
+        maxclust_label.grid(row = 8, 
+                             column = 0,
+                             sticky = W
+                             )
+        self.maxclust_entry = Entry(self.rootWindow, 
+                                     textvariable = self.maxclust
+                                     )
+        self.maxclust_entry.grid(row = 8, 
+                                  column = 1,
+                                  sticky=W
+                                  )
+        self.maxclust_entry.configure(state='disable')
+
+
+
+
+        avg_checkbutton = Checkbutton(self.rootWindow, 
+                                        text = "Use average deviation rather than RMSD.", 
+                                        variable = self.avg
+                                        )
+        avg_checkbutton.grid(row = 9, 
+                               column = 0,
+                               columnspan = 2,
+                               sticky = W
+                               )
+        
+        color_checkbutton = Checkbutton(self.rootWindow, 
+                                        text = "Set b-factors in final ensemble equal to inter-LODR (or group M LODR).", 
+                                        variable = self.color
+                                        )
+        color_checkbutton.grid(row = 10, 
+                               column = 0,
+                               columnspan = 2, 
+                               sticky = W
+                               )
+                               
+                               
+                               
+                                       
+        go_button_analyze = Button(self.rootWindow,
+                                   text = "Analyze!", 
+                                   command = self.execute_analyze
+                                   )
+        go_button_analyze.grid(row=12, 
+                               column = 0, 
+                               columnspan = 2, 
+                               sticky = E+W
+                               )
+
+        status_label = Label(self.rootWindow, text = "Status: ");
+        status_label.grid(row = 13, column = 0, sticky = W);
+        self.status = Label(self.rootWindow, text = "Waiting");
+        self.status.grid(row = 13, column = 1, columnspan = 3, sticky = W);
+
+    def auto_check(self):
+        if self.auto.get() == 1:
+            self.groupm_entry.configure(state = 'disable')
+            self.groupn_entry.configure(state = 'disable')
+            self.maxclust_entry.configure(state='normal')
+        else:
+            self.groupm_entry.configure(state = 'normal')
+            self.groupn_entry.configure(state = 'normal')
+            self.maxclust_entry.configure(state='disable')
+
+      
+
+    def select_ensemble(self):
+        self.status["text"] = "Waiting";
+        self.ensemble = self.utility.select_input_ensemble(self.ensemble_selected)
+        
+
+        
+    def select_pwd(self):
+        self.status["text"] = "Waiting";
+        self.dir_to_save = self.utility.select_output_dir(self.pwd_selected)    
+    
+    # parser for group numbers
+    def parse_range(self, value):
+        result = set()
+        for part in value.split(','):
+            x = part.split('-')
+            result.update(range(int(x[0]), int(x[-1]) + 1))
+        return(sorted(result))  
+            
+               
+    def execute_analyze(self):
+        self.status["text"] = "Waiting";
+
+        ## Manually specify the arguments!
+        options.pwd = self.dir_to_save         
+        
+        
+        # analyze arguments
+        options.input = self.ensemble
+        options.dcut = float(self.dcut.get())
+       
+      
+        options.auto = self.auto.get()
+        if options.auto == 1:
+            options.maxclust = self.maxclust.get()
+        else:
+            try:
+                options.groupm = self.parse_range(str(self.groupm.get()))
+            except:
+                print "Please select a group M, or choose the auto option.\n\n"
+                print "Groups should be formatted like so: 0,3,5,6-9,13"                
+            
+            try:
+                options.groupn = self.parse_range(str(self.groupn.get()))
+            except:
+                pass
+        
+        options.avg = True if (self.avg.get() == 1) else False
+        options.color = True if (self.color.get() == 1) else False
+
+
+        
+        if(self.dir_to_save != "" and self.ensemble != "") and\
+           (self.auto.get() == 1 or self.groupm.get() != ""):           
+                self.utility.analyze_command_run(options, 
+                                                       self.status, 
+                                                       self.rootWindow
+                                                       )
+
+
+            
+main_window = MainRoot();
