@@ -23,8 +23,8 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from operator import itemgetter
 
-
-# os.path.realpath(os.path.dirname(sys.argv[0]))
+# needed for cross-platform functionality
+os.path.realpath(os.path.dirname(sys.argv[0]))
 
 
 
