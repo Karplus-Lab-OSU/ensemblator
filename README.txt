@@ -1,3 +1,9 @@
+NOTE: This readme is out of date as of now (Feb. 28th 2016). Since adding a GUI, the ENSEMBLATOR is now version 3. I'm going to fix this readme soon.
+
+
+
+
+
 ENSEMBLATOR version 2
 Andrew E. Brereton - Oregon State University - 2015
 
