@@ -4,9 +4,6 @@
 from Tkinter import *
 import tkFileDialog
 import tkMessageBox
-import shutil;
-import subprocess;
-import re
 import io
 import ntpath
 import Bio
@@ -16,7 +13,6 @@ from Bio.PDB.PDBIO import PDBIO
 from Bio.SVDSuperimposer import SVDSuperimposer
 import os
 import sys
-import re
 import numpy as np
 import time
 import itertools
@@ -26,6 +22,9 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from operator import itemgetter
+
+
+# os.path.realpath(os.path.dirname(sys.argv[0]))
 
 
 
@@ -134,17 +133,19 @@ def aligner(pdb):
 
     # fix the pdb file format
     filein = open(pdb, 'r')
-    os.remove(pdb)
-    fileout = open(pdb, 'w')
-    
+    temp = []   
     for line in filein:
         if line[0:3] == 'END' and line[0:6] != 'ENDMDL':
             pass
         else:
-            fileout.write(line)
-    fileout.write("END")
-    fileout.close()
+            temp.append(line)
+    temp.append("END")
     filein.close()
+    os.remove(pdb)
+    fileout = open(pdb, 'w')
+    for line in temp:
+        fileout.write(line)
+    fileout.close()
 
 
 # eeprep function, is passed a list of xray-prepped files
@@ -333,8 +334,7 @@ def eeprep(pdbs, bad_files):
             legend_dict[order_dict[key]] = 'REMOVED FROM FINAL ENSEMBLE'
         else:
             infile = open(filename,'r')
-            os.remove(filename)
-            outfile = open(outputname, 'a')
+            temp = []
             # formatting to ensure that the MODEL line is correct
             modeltag = str(counter)
             while len(modeltag) < 9:
@@ -342,30 +342,42 @@ def eeprep(pdbs, bad_files):
             if len(modeltag) == 9:
                 modeltag = "MODEL" + modeltag + "\n" 
             # write model line
-            outfile.write(modeltag)
+            temp.append(modeltag)
             # write all the atom lines
             for line in infile:
                 if line[0:6] == 'ATOM  ':
-                    outfile.write(line)
+                    temp.append(line)
+            infile.close()
             # write endmdl line
-            outfile.write("ENDMDL\n")
+            temp.append("ENDMDL\n")
+            os.remove(filename)
+            outfile = open(outputname, 'a')
+            for line in temp:
+                outfile.write(line)
             outfile.close()
             counter += 1
+            
     # need to cap the file with 'END'
     outfile = open(outputname, 'a')
     outfile.write("END   \n")
     outfile.close()
 
     # rewrites the files to correctly format them, removing the alt_conf id    
-    infile = open(outputname, 'r')
+    temp = []
+    with open(outputname, 'r') as infile:
+               
+        for line in infile:    
+            if line[0:6] == 'ATOM  ':
+                line = line[0:16] + " " + line[17:len(line)]
+                temp.append(line)
+            else:
+                temp.append(line)
+
     os.remove(outputname)
-    outfile = open(outputname, 'w')               
-    for line in infile:    
-        if line[0:6] == 'ATOM  ':
-            line = line[0:16] + " " + line[17:len(line)]
+    with open(outputname, 'w') as outfile:
+        for line in temp:
             outfile.write(line)
-        else:
-            outfile.write(line)
+
     
     # now sort the legend_dict to reflect the new order of _out files
     sorted_legend_dict = {}
@@ -491,24 +503,27 @@ def xrayprep(pdb, output):
                                     )
  
     for outputname in outputnames:
-        endosiero = open(outputname,'r')
+        temp = []
+        with open(outputname,'r') as endosiero:   
+
+            for line in endosiero:
+                if line[0:6] == 'ATOM  ':
+                    new_line = line[0:16] +\
+                                 " " + \
+                                 line[17:21] + \
+                                 "A" + \
+                                 line[22:len(line)]
+                    temp.append(new_line)
+                elif line[0:6] == 'HETATM':
+                    pass
+                else:
+                    new_line = line
+                    temp.append(new_line)
+
         os.remove(outputname)
         eldosiero = open(outputname, 'w')
-    
-
-        for line in endosiero:
-            if line[0:6] == 'ATOM  ':
-                new_line = line[0:16] +\
-                             " " + \
-                             line[17:21] + \
-                             "A" + \
-                             line[22:len(line)]
-                eldosiero.write(new_line)
-            elif line[0:6] == 'HETATM':
-                pass
-            else:
-                new_line = line
-                eldosiero.write(new_line)
+        for line in temp:
+            eldosiero.write(line)
         eldosiero.close()
 
     return outputnames
@@ -527,100 +542,104 @@ def chain_order_fixer(outputname):
     new_line = ""
     resnum = 1
     prev_resnum = resnum
-          
-    endosiero = open(outputname,'r')
-    os.remove(outputname)
-    eldosiero = open(outputname, 'w')
+
+    temp = []      
+    with open(outputname,'r') as endosiero:
+
+                        
+        temp.append("MODEL        0\n")
                     
-    eldosiero.write("MODEL        0\n")
-                
-                
-    # sets all the chains to be chain A internally, prevents massive 
-    # errors later
-    # removes any indicator of alt_conf within the file
-    # now the original chain and the alt conf flag, and the model id only exist
-        # in the filename (and thus later in the legend)     
-    for line in endosiero:
-        if line[0:6] == 'ATOM  ':
-                         
-            if line[13:16] == "N  ":
-                nStore = line[0:16] + \
-                         " " + \
-                         line[17:21] + \
-                         "A" + \
-                         line[22:len(line)]
-            elif line[13:16] == "CA ":
-                caStore = line[0:16] + \
-                          " " + \
-                          line[17:21] + \
-                          "A" + \
-                          line[22:len(line)]
-            elif line[13:16] == "C  ":
-                cStore = line[0:16] + \
-                         " " + \
-                         line[17:21] + \
-                         "A" + \
-                         line[22:len(line)]
-            elif line[13:16] == "O  ":
-                oStore = line[0:16] + \
-                         " " + \
-                         line[17:21] + \
-                         "A" + \
-                         line[22:len(line)]
-            elif line[13:16] != "N  " \
-                    and line[13:16] != "CA " \
-                    and line[13:16] != "C  " \
-                    and line[13:16] != "O  ":
-                otherStore = otherStore + \
-                             line[0:16] + \
+                    
+        # sets all the chains to be chain A internally, prevents massive 
+        # errors later
+        # removes any indicator of alt_conf within the file
+        # now the original chain and the alt conf flag, and the model id only exist
+            # in the filename (and thus later in the legend)     
+        for line in endosiero:
+            if line[0:6] == 'ATOM  ':
+                             
+                if line[13:16] == "N  ":
+                    nStore = line[0:16] + \
                              " " + \
                              line[17:21] + \
                              "A" + \
                              line[22:len(line)]
+                elif line[13:16] == "CA ":
+                    caStore = line[0:16] + \
+                              " " + \
+                              line[17:21] + \
+                              "A" + \
+                              line[22:len(line)]
+                elif line[13:16] == "C  ":
+                    cStore = line[0:16] + \
+                             " " + \
+                             line[17:21] + \
+                             "A" + \
+                             line[22:len(line)]
+                elif line[13:16] == "O  ":
+                    oStore = line[0:16] + \
+                             " " + \
+                             line[17:21] + \
+                             "A" + \
+                             line[22:len(line)]
+                elif line[13:16] != "N  " \
+                        and line[13:16] != "CA " \
+                        and line[13:16] != "C  " \
+                        and line[13:16] != "O  ":
+                    otherStore = otherStore + \
+                                 line[0:16] + \
+                                 " " + \
+                                 line[17:21] + \
+                                 "A" + \
+                                 line[22:len(line)]
 
-            resnum = int(line[22:26])
-                                
-                                
-            #ensures backbone order
-            if nPrint == False \
-                    and caPrint == False \
-                    and cPrint == False and \
-                    oPrint == False:
-                new_line = new_line + nStore
-                nPrint = True
-            elif nPrint == True \
-                    and caPrint == False \
-                    and cPrint == False \
-                    and oPrint == False:
-                new_line = new_line + caStore
-                caPrint = True
-            elif nPrint == True \
-                    and caPrint == True \
-                    and cPrint == False \
-                    and oPrint == False:
-                new_line = new_line + cStore
-                cPrint = True           
-            elif nPrint == True \
-                    and caPrint == True \
-                    and cPrint == True \
-                    and oPrint == False:
-                new_line = new_line + oStore
-                oPrint = True            
-                        
-            if resnum != prev_resnum:
-                eldosiero.write(new_line + otherStore)
-                nPrint = False
-                aPrint = False
-                cPrint = False
-                oPrint = False   
-                                               
-                prev_resnum = resnum
-                otherStore = ""   
-                new_line = "" 
+                resnum = int(line[22:26])
                                     
                                     
+                #ensures backbone order
+                if nPrint == False \
+                        and caPrint == False \
+                        and cPrint == False and \
+                        oPrint == False:
+                    new_line = new_line + nStore
+                    nPrint = True
+                elif nPrint == True \
+                        and caPrint == False \
+                        and cPrint == False \
+                        and oPrint == False:
+                    new_line = new_line + caStore
+                    caPrint = True
+                elif nPrint == True \
+                        and caPrint == True \
+                        and cPrint == False \
+                        and oPrint == False:
+                    new_line = new_line + cStore
+                    cPrint = True           
+                elif nPrint == True \
+                        and caPrint == True \
+                        and cPrint == True \
+                        and oPrint == False:
+                    new_line = new_line + oStore
+                    oPrint = True            
+                            
+                if resnum != prev_resnum:
+                    temp.append(new_line + otherStore)
+                    nPrint = False
+                    aPrint = False
+                    cPrint = False
+                    oPrint = False   
+                                                   
+                    prev_resnum = resnum
+                    otherStore = ""   
+                    new_line = "" 
+                                        
+    os.remove(outputname)
+    eldosiero = open(outputname, 'w')                                
+    for line in temp:
+        eldosiero.write(line)
     eldosiero.write("TER   \n")        
     eldosiero.write("ENDMDL")
+    eldosiero.close()
 
 # this function checks for chain breaks and gaps in the model
 def backbone_scan(pdb):
@@ -949,89 +968,91 @@ def pdb_b_fac(group_list):
                         
         
         # open the output and remove it, in order to rewrite our version of it
-        pdb = open("group" + "_" + group_status +".pdb", 'r')
+        new_atoms = []
+        with open("group" + "_" + group_status +".pdb", 'r') as pdb:
+
+
+
+            value_dict = {}
+            # get the intergroup lodr, or the group m lodr
+            for resid in eelocal_dict["group_m_lodr"]:
+                try:
+                    if eelocal_dict\
+                               ["group_m_lodr"]\
+                               [resid] is not None:
+                        value_dict[resid] = float(eelocal_dict\
+                                                  ["inter_group_lodr"]\
+                                                  [resid]
+                                                  )
+                except:
+                    if eelocal_dict\
+                                ["group_m_lodr"]\
+                                [resid] is not None:
+                        value_dict[resid] = float(eelocal_dict\
+                                                  ["group_m_lodr"]\
+                                                  [resid]
+                                                  )
+            # 60 - 66 is the b-factors
+            # list of all the ATOM lines
+            atoms = []
+            # actually it's getting all the lines
+            for line in pdb:
+                if line[0:4] == "ATOM" or \
+                       line[0:6] == "HETATM" or \
+                       line[0:6] == "MODEL " or \
+                       line[0:6] == "CONECT" or \
+                       line[0:3] == "END" or \
+                       line[0:6] == "MASTER" or \
+                       line[0:3] == "TER" or \
+                       line[0:6] == "ENDMDL" or \
+                       line[0:5] == "HELIX" or \
+                       line[0:5] == "SHEET" or \
+                       line[0:6] == "REMARK":
+                    atoms = atoms + [line,]
+
+            # figure out what the maximum value in the color values is
+            maximum = max(value_dict, key=lambda i: value_dict[i])
+            maximum = value_dict[maximum]
+
+            # dictionary of normalized values
+            norm_dict = {}
+
+            for key in value_dict:
+                # normalize to the maximum
+                value = value_dict[key] / maximum
+                # ensure there are two digits after the decimal place
+                replacement = "%0.2f" % (value,)
+                # ensures the replacement value is the correct number of digits
+                while len(replacement) != 5:
+                    replacement = " " + replacement
+                # stores this value for use, should be a five character string like so:
+                # " 00.10"
+                norm_dict[key] = replacement
+
+            # list of new lines that has the b-factors replaced
+            for line in atoms:
+                try:
+                    key = int(line[22:26])
+                    if line[0:4] == "ATOM" or line[0:6] == "HETATM":       
+                        if key in norm_dict: 
+                            # replaces the value
+                            new_atoms = new_atoms + [
+                                        str(line[0:60]) +
+                                            " " +
+                                            str(norm_dict[key]) +
+                                            str(line[67:]),
+                                        ]
+                        else:
+                            new_atoms = new_atoms + [
+                                            str(line[0:60]) +
+                                            " 00.00" +
+                                            str(line[67:]),
+                                        ]
+                except:
+                    new_atoms = new_atoms + [line,]
+        # write the output
         os.remove("group" + "_" + group_status +".pdb")
         output = open("group" + "_" + group_status +".pdb", "w")
-
-        value_dict = {}
-        # get the intergroup lodr, or the group m lodr
-        for resid in eelocal_dict["group_m_lodr"]:
-            try:
-                if eelocal_dict\
-                           ["group_m_lodr"]\
-                           [resid] is not None:
-                    value_dict[resid] = float(eelocal_dict\
-                                              ["inter_group_lodr"]\
-                                              [resid]
-                                              )
-            except:
-                if eelocal_dict\
-                            ["group_m_lodr"]\
-                            [resid] is not None:
-                    value_dict[resid] = float(eelocal_dict\
-                                              ["group_m_lodr"]\
-                                              [resid]
-                                              )
-        # 60 - 66 is the b-factors
-        # list of all the ATOM lines
-        atoms = []
-        # actually it's getting all the lines
-        for line in pdb:
-            if line[0:4] == "ATOM" or \
-                   line[0:6] == "HETATM" or \
-                   line[0:6] == "MODEL " or \
-                   line[0:6] == "CONECT" or \
-                   line[0:3] == "END" or \
-                   line[0:6] == "MASTER" or \
-                   line[0:3] == "TER" or \
-                   line[0:6] == "ENDMDL" or \
-                   line[0:5] == "HELIX" or \
-                   line[0:5] == "SHEET" or \
-                   line[0:6] == "REMARK":
-                atoms = atoms + [line,]
-
-        # figure out what the maximum value in the color values is
-        maximum = max(value_dict, key=lambda i: value_dict[i])
-        maximum = value_dict[maximum]
-
-        # dictionary of normalized values
-        norm_dict = {}
-
-        for key in value_dict:
-            # normalize to the maximum
-            value = value_dict[key] / maximum
-            # ensure there are two digits after the decimal place
-            replacement = "%0.2f" % (value,)
-            # ensures the replacement value is the correct number of digits
-            while len(replacement) != 5:
-                replacement = " " + replacement
-            # stores this value for use, should be a five character string like so:
-            # " 00.10"
-            norm_dict[key] = replacement
-
-        # list of new lines that has the b-factors replaced
-        new_atoms = []
-        for line in atoms:
-            try:
-                key = int(line[22:26])
-                if line[0:4] == "ATOM" or line[0:6] == "HETATM":       
-                    if key in norm_dict: 
-                        # replaces the value
-                        new_atoms = new_atoms + [
-                                    str(line[0:60]) +
-                                        " " +
-                                        str(norm_dict[key]) +
-                                        str(line[67:]),
-                                    ]
-                    else:
-                        new_atoms = new_atoms + [
-                                        str(line[0:60]) +
-                                        " 00.00" +
-                                        str(line[67:]),
-                                    ]
-            except:
-                new_atoms = new_atoms + [line,]
-        # write the output
         for line in new_atoms:
             output.write(line)
         output.close()
@@ -1301,36 +1322,38 @@ def final_aligner(outputname, atoms_to_ignore):
 
     # fix the pdb file format, otherwise all the models are teated as
     # seperate objects by pymol rather than seperate models
-    filein = open(outputname, 'r')
-    os.remove(outputname)
-    fileout = open(outputname, 'w')
+    temp = []
+    with open(outputname, 'r') as filein:
+
     
-    counter = 0
-    for line in filein:
-        if line[0:3] == 'END' and line[0:6] != 'ENDMDL':
-            pass
-        
-        # Ensures that the final model numbers in the overlayed file match
-        # the legend output by prepare_input
-        # this is a critical function
-        # otherwise the user will have no way to link the final overlay and
-        # statistics back to the original files
+        counter = 0
+        for line in filein:
+            if line[0:3] == 'END' and line[0:6] != 'ENDMDL':
+                pass
             
-        elif line[0:6] == 'MODEL':
-            modeltag = str(counter)
-            while len(modeltag) < 9:
-                modeltag = " " + modeltag
-            if len(modeltag) == 9:
-                modeltag = "MODEL" + modeltag + "\n" 
-            # write model line
-            outfile.write(modeltag)
-            counter += 1
-        else:
-            fileout.write(line)
-    
+            # Ensures that the final model numbers in the overlayed file match
+            # the legend output by prepare_input
+            # this is a critical function
+            # otherwise the user will have no way to link the final overlay and
+            # statistics back to the original files
+                
+            elif line[0:6] == 'MODEL':
+                modeltag = str(counter)
+                while len(modeltag) < 9:
+                    modeltag = " " + modeltag
+                if len(modeltag) == 9:
+                    modeltag = "MODEL" + modeltag + "\n" 
+                # write model line
+                temp.append(modeltag)
+                counter += 1
+            else:
+                temp.append(line)
+    os.remove(outputname)
+    fileout = open(outputname, 'w')    
+    for line in temp:
+        fileout.write(line)
     fileout.write("END")
     fileout.close()
-    filein.close()
     return False
     
 # This is the alignment that will run first when doing the iterative pairwise
@@ -3873,12 +3896,11 @@ def analyze(options):
 
         # now need to sort the groups legend so that it is human readable
         groups_legend = open("groups_legend.tsv", "r")
-        os.remove("groups_legend.tsv")
-        groups_legend_sorted = open("groups_legend.tsv", "w")
         lines = [line for line in groups_legend if line.strip()]
         lines = set(lines)
         lines = list(lines)
         groups_legend.close()
+        os.remove("groups_legend.tsv")
         
         lines_fixed = []
         for line in lines:
@@ -3886,7 +3908,8 @@ def analyze(options):
             new_line = float(new_line)
             lines_fixed.append(new_line)
         lines_fixed.sort()
-        
+
+        groups_legend_sorted = open("groups_legend.tsv", "w")       
         groups_legend_sorted.write("model\tgroup\n")
         for line in lines_fixed:
             new_line = str(line)
@@ -4036,7 +4059,7 @@ class Utility:
         try:
             prepare_input(options)
         except Exception as e:
-            tkMessageBox.showerror("Oops." + str(e));
+            tkMessageBox.showerror("Oops.", str(e));
 
         label_to_update["text"] = "Done!";
         window_to_update.update();
@@ -4046,7 +4069,7 @@ class Utility:
         try:
             analyze(options)
         except Exception as e:
-            tkMessageBox.showerror("Oops." + str(e));
+            tkMessageBox.showerror("Oops.", str(e));
 
         label_to_update["text"] = "Done!";
         window_to_update.update();   
@@ -4601,7 +4624,9 @@ class Analyze:
                                )
         
         color_checkbutton = Checkbutton(self.rootWindow, 
-                                        text = "Set b-factors in final ensemble equal to inter-LODR (or group M LODR).", 
+                                        text = "Set b-factors in final " +\
+                                               "ensemble equal to inter-LODR" +\
+                                               " (or group M LODR).", 
                                         variable = self.color
                                         )
         color_checkbutton.grid(row = 10, 
@@ -4678,8 +4703,8 @@ class Analyze:
             try:
                 options.groupm = self.parse_range(str(self.groupm.get()))
             except:
-                print "Please select a group M, or choose the auto option.\n\n"
-                print "Groups should be formatted like so: 0,3,5,6-9,13"                
+                print "\n\nPlease select a group M, or choose the auto option."
+                print "\nGroups should be formatted like so: 0,3,5,6-9,13\n\n"                
             
             try:
                 options.groupn = self.parse_range(str(self.groupn.get()))
@@ -4697,7 +4722,6 @@ class Analyze:
                                                        self.status, 
                                                        self.rootWindow
                                                        )
-
 
             
 main_window = MainRoot();
