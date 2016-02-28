@@ -9,4 +9,6 @@ https://www.dropbox.com/s/eypfkqg2109crwu/ensemblator?dl=0
 
 
 
-I'm working on getting binaries for Windows and for Mac, but it's taking some time to get those systems set up. 
+I'm planning to look into binaries for Mac systems.
+
+After extensivly testing, it seems it won't be very feasible to bring this software to Windows as written. There are lots of IOErrors and Permission problems, as well as build environment issues with SciPy. 
