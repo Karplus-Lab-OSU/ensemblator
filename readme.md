@@ -27,7 +27,10 @@ system. Furthermore, you will need the following python packages:
 * [muscle](http://www.drive5.com/muscle/)
    
    This software is needed for doing sequence alignments when building ensembles. This feature is VERY useful,
-   I highly reccomend it. Make sure that it is installed, and in your path as 'muscle'.
+   I highly reccomend it. Make sure that it is installed, and in your path as 'muscle'. If you have muscle in
+   your path, but are still encountering errors, please try running from the command line. Sometimes when
+   clicking the icon from the desktop, the PATH variable does not get imported correctly. I don't really
+   know why this happens.
 * SciPy
    
    This python package is needed for the automatic clustering features of the Analysis portion of the Ensemblator.
@@ -37,6 +40,10 @@ system. Furthermore, you will need the following python packages:
 
                 
 #### Known Bugs:
+
+* IO erros on Windows. This is a result of the rate at which the Ensemblator saves and deletes intermediate files. It seems to be too fast for Windows, and sometimes results in a permission error that crashes the system. It's still possible to use the Ensemblator on Windows, but you will have to click "Go" again and again. It's basically unusable and would require a considerable rewrite to get things working smoothly on Windows. For now, I don't have any options for you.
+* command 'muscle -in <somefile> -out <somefile>' not found. (Even though you really do have muscle installed) This is a PATH related problem. Starting the ensemblator from the command line using the source code seems to resolve this, as long as you really do have muscle in your path as 'muscle'. (eg. bash>$ python ensemblator.py)
+* The binary file I downloaded doesn't do anything! There is probably some missing dependency. Try downloading either the CLI or the GUI source code, and running it yourself, after installing the various dependencies. The binary file works on my machine (where it was compiled), and a few other similar machines, but I know for a fact it doesn't work on all linux machines.
 
 #### Bug Reports:
 	Please submit any issues if you have a bug!
