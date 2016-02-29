@@ -2,6 +2,7 @@ You can download a precompiled binary of the Ensemblator from this link!
 If these work, they will work without the need to install prerequisites.
 
 To get these to run, you will probably need to mark them as executable: (use 'chmod +x ensemblator')
+
 [Linux - Mint Debian - 64bit](https://www.dropbox.com/s/eypfkqg2109crwu/ensemblator?dl=0)
 [MacOSX - 64bit](https://www.dropbox.com/s/8j2u0fho89vnbxn/ensemblator_mac?dl=0)
 
