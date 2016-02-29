@@ -10,7 +10,7 @@ comparing two whole ensembles; as well, there is an option to automatically
 try to identify different groups within a single ensemble, and compare 
 those.
 
-[For example:](screenshots/all3.png)
+![For example](screenshots/all3.png)
 
 	
 
