@@ -17,6 +17,13 @@ those.
 	
 ### Installation:
 
+There are a few ways to install and use the Ensemblator:
+
+1. Download a binary for your system, from [here](download_binary.md), and make it executable. Then run it! To use the seqeunce alignment functionality you will still need to seperatly install 'muscle', as described below.
+2. Run the source code:
+   
+   * [ensemblator.py](ensemblator.py) - The GUI version of the Ensemblator. As above you will need to make it executable, or run it using python from the command line. Unlike running from the binary, you will need to ensure you meet all the requirements outlined in the section below.
+   * [ensemblator_cli.py](ensemblator_cli.py) - The CLI version of the Ensemblator. The installation is the same as for the GUI version, simply download, mark as executable, and ensure you meet all the requirements. The usage is different, in that this version operates from the command line, and thus is more amenable to being part of a automated pipeline.
 
 ### Requirements
 #### Strict:
@@ -40,6 +47,26 @@ system. Furthermore, you will need the following python packages:
    Again, these features are very useful, so it's reccommended that you install this package.
     
 #### Usage:
+
+##### The main menu:
+
+![Main Menu](screenshots/main_menu.png)
+
+##### Preparing your files for analysis:
+
+![Prepare Input](screenshots/prepare_input.png)
+
+##### Analyzing your prepared ensemble:
+
+![Analyze Ensemble](screenshots/analyze_ensemble.png)
+
+##### Understanding the output:
+
+![eeGLOBAL](screenshots/eeGLOBAL_dcut.2.5.png)
+![eeLocal](screenshots/eeLocal.png)
+![example](screenshots/example.png)
+
+
 
                 
 #### Known Bugs:
