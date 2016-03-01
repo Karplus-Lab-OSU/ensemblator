@@ -22,8 +22,9 @@ import math
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from operator import itemgetter
+import platform
 
-# needed for cross-platform functionality
+
 os.path.realpath(os.path.dirname(sys.argv[0]))
 
 
@@ -1811,7 +1812,8 @@ def prepare_input(options):
                              " is required), or the filename does not end in "
                              "'.pdb'.\n\n\n Alternativly, you have not"
                              " selected a correct file, chain, or model ID."
-                             " If there is no chain ID, use 'X'." 
+                             " If there is no chain ID, use 'X'. These chain"
+                             " IDs are case sensitive, so use A rather than a." 
                             )
                 tester = aligned_dict[key]
                 #calculate percent id
@@ -3990,7 +3992,8 @@ def analyze(options):
     # time stuff
     endTime = time.time()
     workTime =  endTime - startTime
-    print "\nEverything completed in: " + str(workTime) + " seconds.\n"
+    print "\nEverything completed in: " + str(workTime) + " seconds."
+    print "\nResults (images and ensembles) saved in " + options.pwd + "\n"
 
 
 
@@ -4006,12 +4009,13 @@ class Utility:
     def __init__(self):
         self.applocation = os.path.dirname(sys.argv[0]);
         self.last_dir_accessed = os.path.dirname(sys.argv[0]);
+        self.dir_to_save = ""
 
     def select_output_dir(self,label_to_update):
         dir_to_save = tkFileDialog.askdirectory(initialdir = self.last_dir_accessed, title = "Select output directory.");
         dir_to_save_label = "..." + dir_to_save[len(dir_to_save) - 22:]
         
-        
+        self.last_dir_accessed = dir_to_save
         
         label_to_update["text"] = dir_to_save_label
         return(dir_to_save);
@@ -4028,28 +4032,42 @@ class Utility:
         firstname = os.path.basename(chosenfiles[0]);
         lastname = os.path.basename(chosenfiles[len(chosenfiles)-1]);
         label_to_update["text"] = firstname + " ... " + lastname
-        self.last_dir_accessed = os.path.dirname(chosenfiles[0]);
+        if self.dir_to_save != "":
+            self.last_dir_accessed = os.path.dirname(self.dir_to_save)
+        else:
+            self.last_dir_accessed = os.path.dirname(chosenfiles[0])
         toRet = chosenfiles;
 
         return(toRet);
 
     def select_input_file(self, label_to_update):
-        chosenfile = tkFileDialog.askopenfilename(initialdir = self.last_dir_accessed, multiple = False, title="Select template file. Dissimilar chains will be removed from the ensemble.");
+        chosenfile = tkFileDialog.askopenfilename(initialdir = self.last_dir_accessed, 
+                                                  multiple = False, 
+                                                  title="Select template file. Dissimilar chains will be removed from the ensemble.");
         toRet = "";
         if(chosenfile != ""):
             firstname = os.path.basename(chosenfile);
             label_to_update["text"] = firstname
-            self.last_dir_accessed = os.path.dirname(chosenfile);
+            print self.dir_to_save
+            if self.dir_to_save != "":
+                self.last_dir_accessed = (self.dir_to_save)
+            else:
+                self.last_dir_accessed = os.path.dirname(chosenfile)
             toRet = chosenfile;
         return(toRet);
         
     def select_input_ensemble(self, label_to_update):
-        chosenfile = tkFileDialog.askopenfilename(initialdir = self.last_dir_accessed, multiple = False, title="Select input ensemble (must have been prepared using the Ensemblator.");
+        chosenfile = tkFileDialog.askopenfilename(initialdir = self.last_dir_accessed, 
+                                                  multiple = False, 
+                                                  title="Select input ensemble (must have been prepared using the Ensemblator.");
         toRet = "";
         if(chosenfile != ""):
             firstname = os.path.basename(chosenfile);
             label_to_update["text"] = firstname
-            self.last_dir_accessed = os.path.dirname(chosenfile);
+            if self.dir_to_save != "":
+                self.last_dir_accessed = (self.dir_to_save)
+            else:
+                self.last_dir_accessed = os.path.dirname(chosenfile)
             toRet = chosenfile;
         return(toRet);
 
@@ -4441,8 +4459,18 @@ class Prepare:
                                                        self.status, 
                                                        self.rootWindow
                                                        )
-
-
+            else:
+                print("\n\nIf you have chosen to do an alignment, you must"
+                      " also select a template file to use as your guide."
+                      " Models that are less similar than the percent identity"
+                      " cutoff will not be included in the ensemble."
+                      )
+        
+        
+        else:
+            print("\n\nPlease select a working directory (to save results in)"
+                  ", and some input files to make an ensemble out of!"
+                  )
 
 
 
@@ -4722,6 +4750,28 @@ class Analyze:
                                                        self.status, 
                                                        self.rootWindow
                                                        )
+        else:
+            print("\n\nPlease select a working directory (to save results in)"
+                  ", a prepared ensemble to analyze, and either select the "
+                  "auto-cluster option, or define at least a group M to "
+                  "analyze. Then click the button again!"
+                  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
             
 main_window = MainRoot();
+
