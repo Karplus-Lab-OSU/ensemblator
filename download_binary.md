@@ -1,7 +1,9 @@
 You can download a precompiled binary of the Ensemblator from this link!
 If these work, they will work without the need to install prerequisites.
 
-To get these to run, you might need to mark them as executable: (use 'chmod +x ensemblator')
+To get these to run, you might need to mark them as executable: (use 'chmod +x ensemblator'). On MacOS you will also need to go into the system settings and enable software from unauthorized developers.
+
+Also, be aware, they take a long time to start up. If nothing happens, try launching them from the terminal, to catch any error messages.
 
 * [Linux - Mint Debian - 64bit](https://www.dropbox.com/s/7re87qlll02v4f1/ensemblator_linux.tar.gz?dl=0)
   
