@@ -1,7 +1,7 @@
 You can download a precompiled binary of the Ensemblator from this link!
 If these work, they will work without the need to install prerequisites.
 
-To get these to run, you will probably need to mark them as executable: (use 'chmod +x ensemblator')
+To get these to run, you might need to mark them as executable: (use 'chmod +x ensemblator')
 
 * [Linux - Mint Debian - 64bit](https://www.dropbox.com/s/7re87qlll02v4f1/ensemblator_linux.tar.gz?dl=0)
   
