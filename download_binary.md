@@ -6,7 +6,8 @@ To get these to run, you will probably need to mark them as executable: (use 'ch
 * [Linux - Mint Debian - 64bit](https://www.dropbox.com/s/eypfkqg2109crwu/ensemblator?dl=0)
   
    Tested, and also works on 64 bit Ubuntu 14.04.
-   Also works on 64 bit Fedora 23 (actually Korora 23)
+   
+   Also works on 64 bit Fedora 23 (actually Korora 23).
 
 * [MacOSX - Yosemite - 64bit](https://www.dropbox.com/s/8j2u0fho89vnbxn/ensemblator_mac?dl=0)
 
