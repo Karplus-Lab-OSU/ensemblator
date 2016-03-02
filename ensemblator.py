@@ -2852,8 +2852,11 @@ def analyze(options):
         # (this is different than the default whiten function)       
         def whiten(obs):
             std_dev = np.std(obs)
-            return obs / std_dev
-
+            if std_dev != 0.0:
+                return obs / std_dev
+            else:
+                return obs
+            
         # read in the pairwise data file, we gonna build a matrix
         pairwise_file = open("pairwise_analysis.tsv", 'r')
         
@@ -2865,7 +2868,9 @@ def analyze(options):
         atoms_removed = NestedDict()
         rms_all = NestedDict()
         rms_sub = NestedDict()
-
+        
+        # a list to check for the case where no pairs have any atoms removed
+        atoms_check = []
         # build pairwise dictionaries with all the values of interest
         for line in lines:
         
@@ -2875,9 +2880,21 @@ def analyze(options):
             rms_a = float(line.split()[3])
             rms_s = float(line.split()[4])
             
+            atoms_check.append(atoms)
             atoms_removed[x][y] = atoms
             rms_all[x][y] = rms_a
             rms_sub[x][y] = rms_s
+        
+        # make a set, then a list, then check if 0 is the only member
+        atoms_check = set(atoms_check)
+        atoms_check = list(atoms_check)
+        # remember if any atoms were removed
+        no_atoms_removed = False
+        if len(atoms_check) == 1:
+            if atoms_check[0] == 0:
+                no_atoms_removed = True
+        
+        
         
         # this is used to generate ranges, it's so I know what the highest number
         # of models is (ie. how many columns and rows I need in my matrix)    
@@ -2921,59 +2938,62 @@ def analyze(options):
         rms_all_asmatrix = whiten(np.asmatrix(rms_all_array_list))
         rms_sub_asmatrix = whiten(np.asmatrix(rms_sub_array_list)) 
         
-        
-        # declare the variables in this scope as I'm going to want to keep them
-        atoms_removed_distortion = 0
-        atoms_removed_best_distortion = None
-        
         # get the max number of clusters to search for from the user
         # optional. Default is 6 (as declared in the option.parser at the top)
-        max_clust = options.maxclust + 1
+        max_clust = options.maxclust + 1        
+
         
-        # for each number of clusters to search, find that number of clusters
-        for k in range(2,max_clust):
-            codebook, atoms_removed_distortion = kmeans(atoms_removed_asmatrix, k)
-            # penalty based on number of clusters, scales. 0.35 is an arbitrary
-            # constant that biases this search in favor of lower numbers
-            # of clusters. Based on datasets with known clusters, this seems to
-            # perform well enough.
-            atoms_removed_distortion = (atoms_removed_distortion +
-                                        (k * 0.3 * atoms_removed_distortion)
-                                        )        
+        if no_atoms_removed == False:
             
-            #if this is the best k value based on this distortion stat,
-            # or if it's the first run. 
-            if atoms_removed_distortion < atoms_removed_best_distortion \
-                       or atoms_removed_best_distortion == None:
+            # declare the variables in this scope as I'm going to want to keep them
+            atoms_removed_distortion = 0
+            atoms_removed_best_distortion = None
+            
+            
+            # for each number of clusters to search, find that number of clusters
+            for k in range(2,max_clust):
+                codebook, atoms_removed_distortion = kmeans(atoms_removed_asmatrix, k)
+                # penalty based on number of clusters, scales. 0.35 is an arbitrary
+                # constant that biases this search in favor of lower numbers
+                # of clusters. Based on datasets with known clusters, this seems to
+                # perform well enough.
+                atoms_removed_distortion = (atoms_removed_distortion +
+                                            (k * 0.3 * atoms_removed_distortion)
+                                            )        
                 
-                # check if any clusters only have one member
-                test_code, dist = vq(atoms_removed_asmatrix, codebook)
-                test_dict = {}
-                for cluster in test_code:
-                    if cluster in test_dict:
-                        test_dict[cluster] = test_dict[cluster] + 1
-                    else:
-                        test_dict[cluster] = 1
-                check = False
-                # all the values in the test_dict should be > 1, as each
-                # cluster should have the same group id at least twice, thus
-                # the same key
-                for key in test_dict:
-                    if test_dict[key] == 1:
-                        check = True
-                
-                # add to the distortion score if cluster has one member only
-                if check == True:
-                    atoms_removed_distortion = atoms_removed_distortion + \
-                                                (atoms_removed_distortion * 0.3)
-            # now check again and set the value
-            if atoms_removed_distortion < atoms_removed_best_distortion \
-                       or atoms_removed_best_distortion == None:
-                atoms_code, dist = vq(atoms_removed_asmatrix, codebook)
-                atoms_removed_best_distortion = atoms_removed_distortion
-                
-                
-                
+                #if this is the best k value based on this distortion stat,
+                # or if it's the first run. 
+                if atoms_removed_distortion < atoms_removed_best_distortion \
+                           or atoms_removed_best_distortion == None:
+                    
+                    # check if any clusters only have one member
+                    test_code, dist = vq(atoms_removed_asmatrix, codebook)
+                    test_dict = {}
+                    for cluster in test_code:
+                        if cluster in test_dict:
+                            test_dict[cluster] = test_dict[cluster] + 1
+                        else:
+                            test_dict[cluster] = 1
+                    check = False
+                    # all the values in the test_dict should be > 1, as each
+                    # cluster should have the same group id at least twice, thus
+                    # the same key
+                    for key in test_dict:
+                        if test_dict[key] == 1:
+                            check = True
+                    
+                    # add to the distortion score if cluster has one member only
+                    if check == True:
+                        atoms_removed_distortion = atoms_removed_distortion + \
+                                                    (atoms_removed_distortion * 0.3)
+                # now check again and set the value
+                if atoms_removed_distortion < atoms_removed_best_distortion \
+                           or atoms_removed_best_distortion == None:
+                    atoms_code, dist = vq(atoms_removed_asmatrix, codebook)
+                    atoms_removed_best_distortion = atoms_removed_distortion
+                    
+                    
+                    
                 
                   
         # same as above
@@ -3046,12 +3066,17 @@ def analyze(options):
                 rms_sub_code, dist = vq(rms_sub_asmatrix, codebook)     
                 rms_sub_best_distortion = rms_sub_distortion  
         
+        # don't use atoms removed if there were no atoms removed
+        if no_atoms_removed == True:
+            atoms_removed_best_distortion = 100000000000000
+        
         
         # now, check which of the three matricies gave the best clusters,
         # from their best clusters
         # only use one set of clusters, the one with the lowest distortion
-        if atoms_removed_best_distortion < rms_all_best_distortion and \
-                   atoms_removed_best_distortion < rms_sub_best_distortion:
+        if (atoms_removed_best_distortion < rms_all_best_distortion and \
+                   atoms_removed_best_distortion < rms_sub_best_distortion) \
+                   and no_atoms_removed == False:
             best_code = atoms_code
             num_clust = max(best_code) + 1            
             print("There are " +
@@ -3075,15 +3100,20 @@ def analyze(options):
                   str(num_clust) +
                   " clusters, and best results came from clustering by: rms_subset"
                   )
-        # this case should never occur. This was just for debugging.
-        else:
-            best_code = atoms_code
+        elif rms_sub_best_distortion == rms_all_best_distortion and \
+                     no_atoms_removed == True:
+            best_code = rms_all_code
             num_clust = max(best_code) + 1            
             print("There are " +
                   str(num_clust) +
-                  " clusters, and these results came from clustering by:" +
-                  " number of atoms removed from core." +
-                  " This was somewhat arbitrary."
+                  " clusters, and best results came from clustering by: rms_all"
+                  )                       
+        # this case should never occur. This was just for debugging.
+        else:
+            best_code = rms_all_code
+            num_clust = max(best_code) + 1            
+            print("There was a problem with the cutoff distance... please"
+                  " make it smaller."
                   )
 
         # get the pairwise list of all the clusters compared against each other,
@@ -3928,8 +3958,8 @@ def analyze(options):
         # now if the model_legend.tsv file exists, append the groups to that
         # and remove the group_legend file. Otherwise don't
         
-        #if ir exists
-        if open("model_legend.tsv", "r"):
+        #if it exists
+        try: 
             # handles for the two legends
             mLegend = open("model_legend.tsv", "r")
             gLegend = open("groups_legend.tsv", "r")
@@ -3987,6 +4017,10 @@ def analyze(options):
                 
             mLegend.close()
             gLegend.close()
+        
+        # no model legend file
+        except:
+            pass
             
 
     # time stuff
@@ -4008,7 +4042,7 @@ def analyze(options):
 class Utility:
     def __init__(self):
         self.applocation = os.path.dirname(sys.argv[0]);
-        self.last_dir_accessed = os.path.dirname(sys.argv[0]);
+        self.last_dir_accessed = os.path.realpath(os.environ['HOME']);
         self.dir_to_save = ""
 
     def select_output_dir(self,label_to_update):
