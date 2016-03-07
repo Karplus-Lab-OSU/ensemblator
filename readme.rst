@@ -113,6 +113,42 @@ Select Input Files
 Select Working Directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+    Used to select the directory in which all the intermediate files will be created (and deleted) as well as where the output files will be saved.
+
+Ensemble output filename
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Chain-breaks permitted?
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+# of chain-breaks permitted
+----------------------------
+
+    
+Perform sequence alignment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    Setting this option will do multiple sequence alignment using MUSCLE, which must be installed on the user's computer. This multiple sequence alignment will be used to renumber the structures to ensure that all residues are correctly matched. This will output a file: 'muscle\_align.fasta'. This file is the fasta formatted alignment that was used to generate the new numbering of the residues.
+
+Select Template File
+-----------------------
+
+Chain ID for template
+----------------------
+
+Model ID for template
+----------------------
+
+Percent ID Cutoff
+------------------
+
+    This will allow you to set the percent identity to use when deciding to keep structures or not. You can use percents (ie. 70, 100, or 35.6546), or you can use fractional percents (ie. 0.5 will be treated as 50%).
+
+
+Go!
+^^^^
+
     
 Analyzing your prepared ensemble:
 ==================================
