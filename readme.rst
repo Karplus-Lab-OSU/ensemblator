@@ -25,7 +25,7 @@ Table of Contents
 
 * `Usage <#usage>`_
     
-    + `The main menu <the-main-menu>`_
+    + `The main menu <#the-main-menu>`_
     
     + `Preparing your files for analysis <#preparing-your-files-for-analysis>`_
     
