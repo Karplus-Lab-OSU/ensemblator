@@ -43,7 +43,7 @@ Installation:
 
 There are a few ways to install and use the *Ensemblator*:
 
-1. Download a `binary <download_binary.md>`_ for your system, and ensure it is executable. Then run it! To use the seqeunce alignment functionality you will still need to seperatly install 'muscle', as described below.
+1. Download a `binary <download_binary.md>`_ for your system, and ensure it is executable. Then run it! To use the sequence alignment functionality you will still need to separately install 'muscle', as described below.
 2. Run the source code:
    
    a. `ensemblator.py <ensemblator.py>`_ - The GUI version of the *Ensemblator*. As above you will need to make it executable, or run it using python from the command line. Unlike running from the binary, you will need to ensure you meet all the requirements outlined in the section below.
@@ -67,11 +67,11 @@ Optional:
 
 * `muscle <http://www.drive5.com/muscle/>`_
    
-   This software is needed for doing sequence alignments when building ensembles. This feature is VERY useful, I highly reccomend it. Make sure that it is installed, and in your path as 'muscle'. If you have muscle in your path, but are still encountering errors, please try running from the command line. Sometimes when clicking the icon from the desktop, the PATH variable does not get imported correctly. I don't really know why this happens.
+   This software is needed for doing sequence alignments when building ensembles. This feature is VERY useful, I highly recommend it. Make sure that it is installed, and in your path as 'muscle'. If you have muscle in your path, but are still encountering errors, please try running from the command line. Sometimes when clicking the icon from the desktop, the PATH variable does not get imported correctly. I don't really know why this happens.
 
 * SciPy
    
-   This python package is needed for the automatic clustering features of the Analysis portion of the *Ensemblator*. Again, these features are very useful, so it's reccommended that you install this package.
+   This python package is needed for the automatic clustering features of the Analysis portion of the *Ensemblator*. Again, these features are very useful, so it's recommended that you install this package.
     
 Usage:
 *******
@@ -122,8 +122,12 @@ Ensemble output filename
 Chain-breaks permitted?
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+    There are three choices available for this option: "none", "some", and "all". Selecting "none", the default behavior, will result in the behavior that when building the ensemble from your input structures, and model that has a break in the backbone will not be included in the final ensemble. This prevents the introduction of gaps into the final ensemble. However, sometimes all the models contain some gaps. In this case it becomes more important to choose either "all", which will allow all models, or "some", which will allow only models with less than a certain number of chain-breaks.
+
 # of chain-breaks permitted
 ----------------------------
+
+    This defines the number of chain-breaks allowed to be present before a model is considered "bad" and removed from the final ensemble. This option is only relevant if the user has selected "some" for the option "Chain-breaks permitted?". Increasing this number will make the final ensemble have more and more missing atoms, as more models with gaps will be included in the final ensemble. This option is particularly useful when dealing with datasets where every structure has some number of gaps, but a few poor quality structures have many more gaps.
 
     
 Perform sequence alignment
@@ -148,7 +152,7 @@ Percent ID Cutoff
 
 Go!
 ^^^^
-
+    Build the ensemble!
     
 Analyzing your prepared ensemble:
 ==================================
@@ -169,7 +173,7 @@ Understanding the output:
 Known Bugs:
 ************
 
-* IO erros on Windows. 
+* IO errors on Windows. 
 
     This is a result of the rate at which the *Ensemblator* saves and deletes intermediate files. It seems to be too fast for Windows, and sometimes results in a permission error that crashes the system. It's still possible to use the *Ensemblator* on Windows, but you will have to click "Go" again and again. It's basically unusable and would require a considerable rewrite to get things working smoothly on Windows. For now, I don't have any options for you.
 
@@ -179,7 +183,7 @@ Known Bugs:
 
 * The binary file I downloaded doesn't do anything! 
 
-    There is probably some missing dependency. Try downloading either the CLI or the GUI source code, and running it yourself, after installing the various dependencies. The binary file works on my machine (where it was compiled), and a few other similar machines, but I know for a fact it doesn't work on all linux machines.
+    There is probably some missing dependency. Try downloading either the CLI or the GUI source code, and running it yourself, after installing the various dependencies. The binary file works on my machine (where it was compiled), and a few other similar machines, but I know for a fact it doesn't work on all Linux machines.
 
 Bug Reports:
 *************
