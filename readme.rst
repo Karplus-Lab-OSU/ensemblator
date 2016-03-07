@@ -15,7 +15,7 @@ those.
 
 ..  image:: screenshots/all3.png
     :align: center
-    :width: 25%
+    :width: 40pt
 	
 
 	
