@@ -16,6 +16,12 @@ those.
 ..  image:: screenshots/all3.png
 	
 
+Table of Contents
+******************
+
+* _`Installation:`
+
+
 	
 Installation:
 **************
