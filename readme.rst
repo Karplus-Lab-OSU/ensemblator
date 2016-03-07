@@ -19,7 +19,7 @@ those.
 Table of Contents
 ******************
 
-* _`Installation:`
+* Installation_
 
 
 	
