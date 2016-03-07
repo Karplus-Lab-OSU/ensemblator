@@ -81,11 +81,6 @@ Preparing your files for analysis:
 
 .. image:: screenshots/prepare_input.png
 
-Analyzing your prepared ensemble:
-==================================
-
-.. image:: screenshots/analyze_ensemble.png
-
 
 The purpose of this part of the program is to create an ensemble which only contains all the atoms common to each of the structures. It does this using the residue ID and the atom type. *ie.* All the residue 46 CA atoms need to be present in all structures to be included. This is important to consider, as if the numbering of the residues is different, only backbone atoms will be kept, and the subsequent analysis by the Ensemblator will be weird. There are always at least two outputs from this script: your output  ensemble, and a legend that will contain the model id associated with each input structure. 
 
@@ -98,7 +93,10 @@ Select Working Directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
     
+Analyzing your prepared ensemble:
+==================================
 
+.. image:: screenshots/analyze_ensemble.png
 
 
 Understanding the output:
