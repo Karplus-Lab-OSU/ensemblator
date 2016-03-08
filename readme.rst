@@ -123,7 +123,7 @@ Ensemble output filename
 Chain-breaks permitted?
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-    There are three choices available for this option: "none", "some", and "all". Selecting "none", the default behavior, will result in the behavior that when building the ensemble from your input structures, and model that has a break in the backbone will not be included in the final ensemble. This prevents the introduction of gaps into the final ensemble. However, sometimes all the models contain some gaps. In this case it becomes more important to choose either "all", which will allow all models, or "some", which will allow only models with less than a certain number of chain-breaks.
+    There are three choices available for this option: "none", "some", and "all". Selecting "none", the default behavior, will result in the behavior that when building the ensemble from your input structures, any model that has a break in the backbone will not be included in the final ensemble. This prevents the introduction of gaps into the final ensemble. However, sometimes all the models contain some gaps. In this case it becomes more important to choose either "all", which will allow all models, or "some", which will allow only models with less than a certain number of chain-breaks.
 
 # of chain-breaks permitted
 ----------------------------
