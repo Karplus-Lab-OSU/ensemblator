@@ -118,6 +118,7 @@ Select Working Directory
 Ensemble output filename
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+    Used to specify the final name of the output ensemble.
 
 Chain-breaks permitted?
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -138,11 +139,19 @@ Perform sequence alignment
 Select Template File
 -----------------------
 
+    This option is required when doing an alignment. This option is used to define a template that all the aligned sequences will be compared to. If they are less than a certain percent identity (by default 70%) they will not be included in the analysis.
+
 Chain ID for template
 ----------------------
 
+    Which chain in the template file do you want to use as a standard? Default is "X", which is also what should be used if the template file does not have any chains labeled. This entry is **case sensitive**! "a" does not equal "A", and will give errors.
+
+
 Model ID for template
 ----------------------
+
+    As above, but for model IDs. By default 0 is used, but any number will work. If there are no model labels in the template file, just leave this as 0.
+
 
 Percent ID Cutoff
 ------------------
