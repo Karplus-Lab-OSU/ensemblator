@@ -156,7 +156,7 @@ Model ID for template
 Percent ID Cutoff
 ------------------
 
-    This will allow you to set the percent identity to use when deciding to keep structures or not. You can use percents (ie. 70, 100, or 35.6546), or you can use fractional percents (ie. 0.5 will be treated as 50%).
+    This will allow you to set the percent identity to use when deciding to keep structures or not. You can use percentages (ie. 70, 100, or 35.6546), or you can use fractional percentages (ie. 0.5 will be treated as 50%).
 
 
 Go!
