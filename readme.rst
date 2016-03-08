@@ -169,11 +169,60 @@ Analyzing your prepared ensemble:
 .. image:: screenshots/analyze_ensemble.png
 
 
+Select Working Directory
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Select Input Ensemble
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Cutoff distance for core atoms
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Group M models
+^^^^^^^^^^^^^^^
+
+Group N models
+^^^^^^^^^^^^^^^^
+
+Perform automatic clustering
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Max # of clusters to search for
+--------------------------------
+
+Use average deviation rather than RMSD
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Set b-factors in final ensemble equal to inter-LODR (or group M LODR)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+
+
+
+
+
+
+
+
 Understanding the output:
 ==========================
 
+eeGlobal Results
+^^^^^^^^^^^^^^^^^^
+
 .. image:: screenshots/eeGLOBAL_dcut.2.5.png
+
+
+eeLocal Results
+^^^^^^^^^^^^^^^^^
+
 .. image:: screenshots/eeLocal.png
+
+
+The final overlay
+^^^^^^^^^^^^^^^^^^^
+
 .. image:: screenshots/example.png
 
 
