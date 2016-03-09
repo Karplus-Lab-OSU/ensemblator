@@ -262,7 +262,7 @@ The Final Overlays
 
 .. image:: screenshots/example.png
 
-The final overlay of structures is the overlay calculated by using the first model in the ensemble as a reference structure, and aligning all the other models to this first model, using only the common core atoms determined depending on your distance cutoff. Typically this file will be named something like "global\_overlay\_X.X.pdb". The model numbers in this file correspond to the key in "model\_legend.tsv", **though please not that pymol begins reporting the first model as "1", when actually it is "0"** . As well, this pdb file will be split into pdb files for each group in the analysis, without changing the overlay. This is to make it easier to make figures like the one above, comparing two groups.
+The final overlay of structures is the overlay calculated by using the first model in the ensemble as a reference structure, and aligning all the other models to this first model, using only the common core atoms determined depending on your distance cutoff. Typically this file will be named something like "global\_overlay\_X.X.pdb". The model numbers in this file correspond to the key in "model\_legend.tsv", **though please note that pymol begins reporting the first model as "1", when actually it is "0"** . As well, this pdb file will be split into pdb files for each group in the analysis, without changing the overlay. This is to make it easier to make figures like the one above, comparing two groups.
                 
                 
 Known Bugs:
