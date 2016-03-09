@@ -221,34 +221,34 @@ Understanding the Output:
 ==========================
 
 Understanding the Algorithms
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Output Files
-------------------
+^^^^^^^^^^^^^^^^^^^^
 
 'model\_legend.tsv'
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
     This tab-separated table contains information about which models originally belonged to which input files, chains, and alternate conformations. As well, if automatic clustering is used and this file is present in the working directory, the group ID will be added to this legend as an additional column.
 
 'pairwise\_analysis.tsv'
-^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
     This tab-separated table contains information about each of the pairs of models. From left to right, the columns list: the id of model x, the id of model y, the number of atoms removed from the core for this pair, the rmsd for all the atoms in the two structures, and the rmsd for only the core atoms in this pair of structures.
 
 'eeGlobal\_out.tsv'
-^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
     This tab-separated table contains information each atom in the ensemble. From left to right the columns describe: the residue id of the atom, the atom type, the RMSD of the atom calculated pairwise from group M (ie. the RMSD of all the pairwise distances in group M), the same for group N, the same but calculated from each M to N pair, the closest distance between any member of M with any member of N, the pair of models which actually had that closest approach, and whether or not this  atom was included in the common core calculated for the ensemble.
 
 'eeLocal\_out.tsv':
-^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
       
       This tab-separated table contains information about the LODR calculated for each residue. The columns list from left to right: the residue id, the RMS of the LODR calculated for each pair of structures in group M, the same for group N, the same for each M to N pair, the minimum LODR for any member of M compared with any member of N, and which pair was that closest.
 
 
 eeGlobal Results
-^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 .. image:: screenshots/eeGLOBAL_dcut.2.5.png
     
@@ -256,7 +256,7 @@ A graph of some of the data from 'eeGlobal\_out.tsv'. This plot is showing the R
 
 
 eeLocal Results
-^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 .. image:: screenshots/eeLocal.png
 
@@ -264,7 +264,7 @@ A graph of some of the data from 'eeLocal\_out.tsv'. This plot is showing the RM
 
 
 The Final Overlays
-^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 .. image:: screenshots/example.png
 
