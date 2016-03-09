@@ -223,6 +223,16 @@ Understanding the Output:
 Understanding the Algorithms
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Generating the Ensembles
+-------------------------
+
+Finding the Best Overlay (the "common core atoms")
+---------------------------------------------------
+
+Calculating LODR
+--------------------
+
+
 The Output Files
 ^^^^^^^^^^^^^^^^^^^^
 
