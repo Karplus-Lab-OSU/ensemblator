@@ -217,31 +217,13 @@ Set b-factors in final ensemble equal to inter-LODR (or group M LODR)
 
 
 
-Understanding the output:
+Understanding the Output:
 ==========================
 
 'model\_legend.tsv'
 ^^^^^^^^^^^^^^^^^^^^^
 
     This tab-separated table contains information about which models originally belonged to which input files, chains, and alternate conformations. As well, if automatic clustering is used and this file is present in the working directory, the group ID will be added to this legend as an additional column.
-
-eeGlobal Results
-^^^^^^^^^^^^^^^^^^
-
-.. image:: screenshots/eeGLOBAL_dcut.2.5.png
-
-
-eeLocal Results
-^^^^^^^^^^^^^^^^^
-
-.. image:: screenshots/eeLocal.png
-
-
-
-The Final Overlays
-^^^^^^^^^^^^^^^^^^^
-
-.. image:: screenshots/example.png
 
 'pairwise\_analysis.tsv'
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -257,6 +239,30 @@ The Final Overlays
 ^^^^^^^^^^^^^^^^^^^^^
       
       This tab-separated table contains information about the LODR calculated for each residue. The columns list from left to right: the residue id, the RMS of the LODR calculated for each pair of structures in group M, the same for group N, the same for each M to N pair, the minimum LODR for any member of M compared with any member of N, and which pair was that closest.
+
+
+eeGlobal Results
+^^^^^^^^^^^^^^^^^^
+
+.. image:: screenshots/eeGLOBAL_dcut.2.5.png
+
+    A graph of some of the data from 'eeGlobal\_out.tsv'. This plot is showing the RMSD (or average deviation) of *just the backbone atoms* for each group, between the groups, as well as showing the closest approach distance between between any pair from the groups. Particularly interesting are areas where the inter-group RMSD or the closest approach are higher than the Group M or Group N RMSD, indicating a region where the deviation between groups is higher than within either group.
+
+
+eeLocal Results
+^^^^^^^^^^^^^^^^^
+
+.. image:: screenshots/eeLocal.png
+
+    A graph of some of the data from 'eeLocal\_out.tsv'. This plot is showing the RMS-LODR (or average LODR) of *just the backbone atoms* for each group, between the groups, as well as showing the smallest difference in LODR between any pair from the groups. Particularly interesting are areas where the inter-group RMSD or the closest approach are higher than the Group M or Group N RMS-LODR, indicating a region where the deviation in local conformation between groups is higher than within either group.
+
+
+The Final Overlays
+^^^^^^^^^^^^^^^^^^^
+
+.. image:: screenshots/example.png
+
+    The final overlay of structures is the overlay calculated by using the first model in the ensemble as a reference structure, and aligning all the other models to this first model, using only the common core atoms determined depending on your distance cutoff. Typically this file will be named something like "global\_overlay\_X.X.pdb". The model numbers in this file correspond to the key in "model\_legend.tsv", **though please not that pymol begins reporting the first model as "1", when actually it is "0"** . As well, this pdb file will be split into pdb files for each group in the analysis, without changing the overlay. This is to make it easier to make figures like the one above, comparing two groups.
                 
                 
 Known Bugs:
