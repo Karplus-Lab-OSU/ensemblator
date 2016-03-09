@@ -172,36 +172,48 @@ Analyzing your prepared ensemble:
 Select Working Directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+    Used to select the directory in which all the intermediate files will be created (and deleted) as well as where the output files will be saved. If automatic clustering is used, the legends for the groups will be appended to 'models.tsv' if it is in this directory.
+
 Select Input Ensemble
 ^^^^^^^^^^^^^^^^^^^^^^^
+
+    Use this option to select an ensemble prepared by the `Preparing your files for analysis <#preparing-your-files-for-analysis>`_ part of the *Ensemblator*.
+
 
 Cutoff distance for core atoms
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+    A value in Angstroms to use as a distance cutoff to define the common core of your ensemble. The default value for this calculation is 2.5. Choosing this value is important, and different cutoff values will often give different results. It is valuable to play around to determine what works best for your ensemble. Roughly, the same atom seen in two different models will be considered a 'core' atom, if it is within this cutoff distance. Otherwise, it will be excluded from the core.
+
 Group M models
 ^^^^^^^^^^^^^^^
+
+    Define group M for analysis. If not using the auto option, then at least group M must be defined. Members of a group can be separated by commas, as well as ranges specified using dashes. For example, to specify all 20 members of an ensemble as group M, you would type '-m 0-19'. To specify only some, you might type '-m 0-4,13-19'.
 
 Group N models
 ^^^^^^^^^^^^^^^^
 
+    Define group N for analysis and comparison to group M.
+
 Perform automatic clustering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    This option will allow the user to avoid telling the Ensemblator which groups to compare. Instead, the program will do all the pairwise analysis, and then use these results to determine which statistics (# of atoms removed, rmsd of all atoms, rmsd of core atoms) give the best clusters. There is a penalty for increasing numbers of clusters, which biases the discovery of clusters to lower numbers of clusters. Clustering is done using a k-means algorithm. The clustering algorithms will also disfavor a solution that has a cluster with only one member.
 
 Max # of clusters to search for
 --------------------------------
 
+    Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 6. This can be increased as high as the user wants, or as low as 2. Higher values will slightly increase the computation time.
+
 Use average deviation rather than RMSD
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    As stated, for all calculations and results this will used the average deviation rather than the root-mean-square deviation. This should be more robust to extreme outliers.
 
 Set b-factors in final ensemble equal to inter-LODR (or group M LODR)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
-
-
-
-
-
+    Setting this will result in the final models output having the b factors replaced with the Inter-group (if more than one group) or Group M LODR. This allows easy visualization in pymol using the "spectrum b" command (an example of this is the figure at the top of this page).
 
 
 
@@ -220,6 +232,7 @@ eeLocal Results
 .. image:: screenshots/eeLocal.png
 
 
+
 The final overlay
 ^^^^^^^^^^^^^^^^^^^
 
@@ -231,7 +244,7 @@ The final overlay
 Known Bugs:
 ************
 
-* IO errors on Windows. 
+* IO errors on Windows.
 
     This is a result of the rate at which the *Ensemblator* saves and deletes intermediate files. It seems to be too fast for Windows, and sometimes results in a permission error that crashes the system. It's still possible to use the *Ensemblator* on Windows, but you will have to click "Go" again and again. It's basically unusable and would require a considerable rewrite to get things working smoothly on Windows. For now, I don't have any options for you.
 
