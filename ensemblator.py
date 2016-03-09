@@ -1507,6 +1507,15 @@ def pairwise_realigner(x,y, atoms_to_ignore):
     # again, does not need to return anything. It is enough to update the
     # coords of model y each time based on the new alignment
 
+
+def avg_calc_coords(coords1, coords2):
+    "Return avg deviations between coords1 and coords2."
+    diff = coords1 - coords2
+    l = coords1.shape[0]
+    return abs((sum(sum(diff)) / l))
+
+
+
 # this function calculates the rmsd of the atoms in the core, for any given
 # pair of models
 # structure is VERY similar to the aligner functions
@@ -1548,9 +1557,12 @@ def get_rms_sub(x,y, atoms_to_ignore):
     # exit if all atoms are flagged for removal (ie. if the sets of atoms to
     # superimpose are empty)
     try:
-        # internal code to calculate rms, not reccomended for users
-            # you don't know me
-        rms_sub = sup._rms(coord1, coord2)
+        if options.avg == False:
+            # internal code to calculate rms, not reccomended for users
+                # you don't know me
+            rms_sub = sup._rms(coord1, coord2)
+        else:
+            rms_sub = avg_calc_coords(coord1, coord2)
     except:
         # this elegent error message needs to be reworked when I rewrite all
         # the log write statements.
@@ -1584,7 +1596,10 @@ def get_rms_all(x,y):
     # exit if all atoms are flagged for removal (ie. if the sets of atoms to
     # superimpose are empty)
     try:
-        rms_all = sup._rms(coord1, coord2)
+        if options.avg == False:
+            rms_all = sup._rms(coord1, coord2)
+        else:
+            rms_all = avg_calc_coords(coord1, coord2)
     except:
         print "RMS GET FAIL"
         return
@@ -1975,8 +1990,10 @@ def analyze(options):
     # first output file, contains info about all the pairs. Used for clustering
     # in the --auto analysis
     pairwise_file = open("pairwise_analysis.tsv", 'w')
-    pairwise_file.write("model_X\tmodel_Y\tatoms_removed\trms_all\trms_subset\n")
-
+    if options.avg == False:
+        pairwise_file.write("model_X\tmodel_Y\tatoms_removed\trms_all\trms_subset\n")
+    else:
+        pairwise_file.write("model_X\tmodel_Y\tatoms_removed\tavg_dev_all\tavg_dev_subset\n")
         
     # take each pairwise alignment and realign until dcut satisfied atoms converge
 
