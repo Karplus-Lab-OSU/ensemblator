@@ -208,7 +208,7 @@ Max # of clusters to search for
 Use average deviation rather than RMSD
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    As stated, for all calculations and results this will used the average deviation rather than the root-mean-square deviation. This should be more robust to extreme outliers. **NOTE:** This will not affect the clustering, as those features will still use RMSD. 
+    As stated, for all calculations and results this will used the average deviation rather than the root-mean-square deviation. This should be more robust to extreme outliers. This *will* change the clusters that are detected using the automatic methods.
 
 Set b-factors in final ensemble equal to inter-LODR (or group M LODR)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
