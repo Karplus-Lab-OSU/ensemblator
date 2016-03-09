@@ -246,6 +246,8 @@ eeGlobal Results
 
 .. image:: screenshots/eeGLOBAL_dcut.2.5.png
 
+    ..
+    
     A graph of some of the data from 'eeGlobal\_out.tsv'. This plot is showing the RMSD (or average deviation) of *just the backbone atoms* for each group, between the groups, as well as showing the closest approach distance between between any pair from the groups. Particularly interesting are areas where the inter-group RMSD or the closest approach are higher than the Group M or Group N RMSD, indicating a region where the deviation between groups is higher than within either group.
 
 
