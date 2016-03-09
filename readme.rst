@@ -220,6 +220,12 @@ Set b-factors in final ensemble equal to inter-LODR (or group M LODR)
 Understanding the Output:
 ==========================
 
+Understanding the Algorithms
+-----------------------------
+
+The Output Files
+------------------
+
 'model\_legend.tsv'
 ^^^^^^^^^^^^^^^^^^^^^
 
