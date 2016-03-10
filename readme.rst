@@ -226,6 +226,10 @@ Understanding the Algorithms
 Generating the Ensembles
 -------------------------
 
+    During the steps involved with preparing the ensemble for input into the analysis steps, there are a few important things to note. The first thing to know is that every pdb file is going to be separated into a unique pdb file (temporarily) for each model, chain, and alternate conformation in the original input file. Each combination of these factors will end up as a distinct model in the final prepared ensemble (eg. **4XRA\_model\_0\_chain\_A\_alt\_A.pdb**).
+    test test test
+
+
 Finding the Best Overlay (the "common core atoms")
 ---------------------------------------------------
 
