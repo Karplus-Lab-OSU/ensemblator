@@ -226,17 +226,23 @@ Understanding the Algorithms
 Generating the Ensembles
 -------------------------
 
-    During the steps involved with preparing the ensemble for input into the analysis steps, there are a few important things to note. The first thing to know is that every pdb file is going to be separated into a unique pdb file (temporarily) for each model, chain, and alternate conformation in the original input file. Each combination of these factors will end up as a distinct model in the final prepared ensemble (eg. **4XRA\_model\_0\_chain\_A\_alt\_A.pdb**).
+    During the steps involved with preparing the ensemble for input into the analysis steps, there are a few important things to note. The first thing to know is that every pdb file is going to be separated into a unique pdb file (temporarily) for each model, chain, and alternate conformation in the original input file. Each combination of these factors will end up as a distinct model in the final prepared ensemble (eg. **4XRA\_model\_0\_chain\_A\_alt\_A**).
     
-    test test test
+    The next important thing to note is that any atoms that are not present in all the models will be removed from the final prepared ensemble. For example, if a member of the ensemble has a serine mutated to a threonine, the methyl group on the threonine side chain will not be present in the final ensemble, and thus will not be analyzed directly. The **effects** that it causes on other atoms will be analyzed however. 
 
 
 Finding the Best Overlay (the "common core atoms")
 ---------------------------------------------------
 
+    The best overlay is determined based on the distance cutoff provided, by iteratively  overlaying pairs of models. The program will first take one pair of models, overlay them using all atoms, then identify which atom-pairs (ie. residue 12 Cα for both models) are within the distance cutoff specified. If yes, then this atom is labeled as a "core atom". Then, the overlay is repeated, but this time only considering the core atoms. Then again the new set of core atoms is identified, the overlay repeated, etc. etc.
+    
+    This step finishes when the same set of core atoms is returned twice in a row. The program then records all the core atoms, and moves on to the next pair of models. After every pair is finished, the "common core" is identified as the atoms that are considered core atoms in every pair of models. Then, all the models are overlayed a final time, this time only considering the common core atoms. This is the final overlay that is used to determine the eeGlobal and eeLocal statistics. As well, the features used to cluster the models are generated and saved in "pairwise\_analysis.tsv" during this step.
+
+
 Calculating LODR
 --------------------
 
+    The locally overlaid dipeptide residual (LODR) is a simple distance-based quantity that does not define individual conformations but defines how closely two conformations compare. Conceptually, it reports information on each residue, by considering the dipeptide unit it makes with the previous residue. To calculate it, first the dipeptides are overlayed based on the Cα, C, O, N, and Cα atoms of the peptide unit preceding the residue, and then the LODR-score is defined as the RMSD between the C, O, N and Cα atoms in the subsequent peptide unit. Given this definition, no LODR values will exist for the first and last residues in a protein (as there are not complete peptide units on both sides of these residues), or for residues bordering chain-breaks. For more details see `this paper by Clark, Tronrud, and Karplus, which describes a much older version of the *Ensemblator*. <http://onlinelibrary.wiley.com/doi/10.1002/pro.2714/abstract>`_
 
 The Output Files
 ^^^^^^^^^^^^^^^^^^^^
