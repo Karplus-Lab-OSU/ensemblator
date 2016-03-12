@@ -307,6 +307,10 @@ Known Bugs:
 
     There is probably some missing dependency. Try downloading either the CLI or the GUI source code, and running it yourself, after installing the various dependencies. The binary file works on my machine (where it was compiled), and a few other similar machines, but I know for a fact it doesn't work on all Linux machines.
 
+* Random crashes using the GUI sometimes, after everything is finished
+
+    I don't know why this is happening. It *does* seem to get everything done, so at least any tasks aren't left incomplete. This is mostly just annoying, but not functionally breaking. If I learn more about tkinter I will try to debug this.
+
 Bug Reports:
 *************
 
