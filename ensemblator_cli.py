@@ -187,7 +187,7 @@ parser.add_option("--auto",
 parser.add_option("--maxclust",
                   type='int',
                   dest="maxclust",
-                  default=6,
+                  default=3,
                   help=("Maximum number of clusters to group the results into "
                         "when using the --auto flag."
                         )

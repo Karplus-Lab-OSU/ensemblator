@@ -4538,7 +4538,7 @@ class Analyze:
         self.groupn = StringVar(self.rootWindow)
         self.groupn.set("")
         self.maxclust = IntVar(self.rootWindow)
-        self.maxclust.set(6)
+        self.maxclust.set(3)
         self.auto = IntVar(self.rootWindow)
         self.auto.set(0)
         self.avg = IntVar(self.rootWindow)
