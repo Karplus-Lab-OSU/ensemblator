@@ -309,7 +309,7 @@ Known Bugs:
 
 * Random crashes using the GUI sometimes, after everything is finished
 
-    I don't know why this is happening. It *does* seem to get everything done, so at least any tasks aren't left incomplete. This is mostly just annoying, but not functionally breaking. If I learn more about tkinter I will try to debug this.
+    I don't know why this is happening. It *does* seem to get everything done, so at least there aren't any tasks left incomplete. This is mostly just annoying, but not functionally breaking. If I learn more about tkinter I will try to debug this.
 
 Bug Reports:
 *************
