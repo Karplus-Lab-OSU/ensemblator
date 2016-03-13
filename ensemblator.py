@@ -4510,6 +4510,7 @@ class Prepare:
                                                        self.status, 
                                                        self.rootWindow
                                                        )
+                self.rootWindow.destroy()
             else:
                 print("\n\nIf you have chosen to do an alignment, you must"
                       " also select a template file to use as your guide."
@@ -4522,7 +4523,8 @@ class Prepare:
             print("\n\nPlease select a working directory (to save results in)"
                   ", and some input files to make an ensemble out of!"
                   )
-
+        
+        
 
 
 class Analyze:
@@ -4801,28 +4803,16 @@ class Analyze:
                                                        self.status, 
                                                        self.rootWindow
                                                        )
+                self.rootWindow.destroy()
         else:
             print("\n\nPlease select a working directory (to save results in)"
                   ", a prepared ensemble to analyze, and either select the "
                   "auto-cluster option, or define at least a group M to "
                   "analyze. Then click the button again!"
                   )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            
+             
+           
+              
+                    
 main_window = MainRoot();
 
