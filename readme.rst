@@ -73,7 +73,7 @@ Optional:
    
    This python package is needed for the automatic clustering features of the Analysis portion of the *Ensemblator*. (Specifically the K-means method) Again, these features are very useful, so it's recommended that you install this package.
    
-* sklearn
+* scikit-learn
 
     This python package is needed for the automatic clustering features of the Analysis portion of the *Ensemblator*. (Specifically the Affinity Propagation method.)
     
