@@ -71,11 +71,13 @@ class options:
         self.percent = 0.7
         self.dcut = 2.5
         self.auto = False
+        self.cluster_method = "K-means"
         self.maxclust = 6
         self.groupm = StrVar()
         self.groupn = StrVar()
         self.avg = False
         self.color = False
+        
 
 
 
@@ -2860,9 +2862,6 @@ def analyze(options):
     ###############################################################################
     # AUTOMATIC HERE:
     if options.auto == True:
-        # only need these packages if we want to automate
-        import random
-        from scipy.cluster.vq import kmeans, vq
 
         # this normalizes the datasets
         # it divides every observation by the stdev of all the observations
@@ -2950,41 +2949,93 @@ def analyze(options):
             rms_all_array_list.append(this_x_rms_a)
             rms_sub_array_list.append(this_x_rms_s)
         
-        # get whitened matrixes of these bad boys!
-        atoms_removed_asmatrix = whiten(np.asmatrix(atoms_removed_array_list))
-        rms_all_asmatrix = whiten(np.asmatrix(rms_all_array_list))
-        rms_sub_asmatrix = whiten(np.asmatrix(rms_sub_array_list)) 
         
-        # get the max number of clusters to search for from the user
-        # optional. Default is 6 (as declared in the option.parser at the top)
-        max_clust = options.maxclust + 1        
+        
+        
+        
+        if options.cluster_method == "K-means":
+        
+            # only need these packages for kmeans
+            import random
+            from scipy.cluster.vq import kmeans, vq
+            
+            # get whitened matrixes of these bad boys!
+            atoms_removed_asmatrix = whiten(np.asmatrix(atoms_removed_array_list))
+            rms_all_asmatrix = whiten(np.asmatrix(rms_all_array_list))
+            rms_sub_asmatrix = whiten(np.asmatrix(rms_sub_array_list)) 
+            
+            # get the max number of clusters to search for from the user
+            # optional. Default is 6 (as declared in the option.parser at the top)
+            max_clust = options.maxclust + 1        
 
-        
-        if no_atoms_removed == False:
             
-            # declare the variables in this scope as I'm going to want to keep them
-            atoms_removed_distortion = 0
-            atoms_removed_best_distortion = None
-            
-            
-            # for each number of clusters to search, find that number of clusters
-            for k in range(2,max_clust):
-                codebook, atoms_removed_distortion = kmeans(atoms_removed_asmatrix, k)
-                # penalty based on number of clusters, scales. 0.35 is an arbitrary
-                # constant that biases this search in favor of lower numbers
-                # of clusters. Based on datasets with known clusters, this seems to
-                # perform well enough.
-                atoms_removed_distortion = (atoms_removed_distortion +
-                                            (k * 0.3 * atoms_removed_distortion)
-                                            )        
+            if no_atoms_removed == False:
                 
-                #if this is the best k value based on this distortion stat,
-                # or if it's the first run. 
-                if atoms_removed_distortion < atoms_removed_best_distortion \
-                           or atoms_removed_best_distortion == None:
+                # declare the variables in this scope as I'm going to want to keep them
+                atoms_removed_distortion = 0
+                atoms_removed_best_distortion = None
+                
+                
+                # for each number of clusters to search, find that number of clusters
+                for k in range(2,max_clust):
+                    codebook, atoms_removed_distortion = kmeans(atoms_removed_asmatrix, k)
+                    # penalty based on number of clusters, scales. 0.35 is an arbitrary
+                    # constant that biases this search in favor of lower numbers
+                    # of clusters. Based on datasets with known clusters, this seems to
+                    # perform well enough.
+                    atoms_removed_distortion = (atoms_removed_distortion +
+                                                (k * 0.3 * atoms_removed_distortion)
+                                                )        
                     
-                    # check if any clusters only have one member
-                    test_code, dist = vq(atoms_removed_asmatrix, codebook)
+                    #if this is the best k value based on this distortion stat,
+                    # or if it's the first run. 
+                    if atoms_removed_distortion < atoms_removed_best_distortion \
+                               or atoms_removed_best_distortion == None:
+                        
+                        # check if any clusters only have one member
+                        test_code, dist = vq(atoms_removed_asmatrix, codebook)
+                        test_dict = {}
+                        for cluster in test_code:
+                            if cluster in test_dict:
+                                test_dict[cluster] = test_dict[cluster] + 1
+                            else:
+                                test_dict[cluster] = 1
+                        check = False
+                        # all the values in the test_dict should be > 1, as each
+                        # cluster should have the same group id at least twice, thus
+                        # the same key
+                        for key in test_dict:
+                            if test_dict[key] == 1:
+                                check = True
+                        
+                        # add to the distortion score if cluster has one member only
+                        if check == True:
+                            atoms_removed_distortion = atoms_removed_distortion + \
+                                                        (atoms_removed_distortion * 0.3)
+                    # now check again and set the value
+                    if atoms_removed_distortion < atoms_removed_best_distortion \
+                               or atoms_removed_best_distortion == None:
+                        atoms_code, dist = vq(atoms_removed_asmatrix, codebook)
+                        atoms_removed_best_distortion = atoms_removed_distortion
+                        
+                        
+                        
+                    
+                      
+            # same as above
+            rms_all_distortion = 0
+            rms_all_best_distortion = None
+            for k in range(2,max_clust):
+                codebook, rms_all_distortion = kmeans(rms_all_asmatrix, k)
+                # penalty based on number of clusters
+                rms_all_distortion = (rms_all_distortion +
+                                      (k * 0.3 * rms_all_distortion)
+                                      )        
+                if rms_all_distortion < rms_all_best_distortion \
+                           or rms_all_best_distortion == None:
+                    
+                    
+                    test_code, dist = vq(rms_all_asmatrix, codebook)
                     test_dict = {}
                     for cluster in test_code:
                         if cluster in test_dict:
@@ -2992,147 +3043,266 @@ def analyze(options):
                         else:
                             test_dict[cluster] = 1
                     check = False
-                    # all the values in the test_dict should be > 1, as each
-                    # cluster should have the same group id at least twice, thus
-                    # the same key
                     for key in test_dict:
                         if test_dict[key] == 1:
-                            check = True
-                    
+                            check = True        
+
                     # add to the distortion score if cluster has one member only
                     if check == True:
-                        atoms_removed_distortion = atoms_removed_distortion + \
-                                                    (atoms_removed_distortion * 0.3)
+                        rms_all_distortion = rms_all_distortion + \
+                                                    (rms_all_distortion * 0.3)
                 # now check again and set the value
-                if atoms_removed_distortion < atoms_removed_best_distortion \
-                           or atoms_removed_best_distortion == None:
-                    atoms_code, dist = vq(atoms_removed_asmatrix, codebook)
-                    atoms_removed_best_distortion = atoms_removed_distortion
-                    
-                    
-                    
-                
-                  
-        # same as above
-        rms_all_distortion = 0
-        rms_all_best_distortion = None
-        for k in range(2,max_clust):
-            codebook, rms_all_distortion = kmeans(rms_all_asmatrix, k)
-            # penalty based on number of clusters
-            rms_all_distortion = (rms_all_distortion +
-                                  (k * 0.3 * rms_all_distortion)
-                                  )        
-            if rms_all_distortion < rms_all_best_distortion \
-                       or rms_all_best_distortion == None:
-                
-                
-                test_code, dist = vq(rms_all_asmatrix, codebook)
-                test_dict = {}
-                for cluster in test_code:
-                    if cluster in test_dict:
-                        test_dict[cluster] = test_dict[cluster] + 1
-                    else:
-                        test_dict[cluster] = 1
-                check = False
-                for key in test_dict:
-                    if test_dict[key] == 1:
-                        check = True        
-
-                # add to the distortion score if cluster has one member only
-                if check == True:
-                    rms_all_distortion = rms_all_distortion + \
-                                                (rms_all_distortion * 0.3)
-            # now check again and set the value
-            if rms_all_distortion < rms_all_best_distortion \
-                       or rms_all_best_distortion == None:
-                rms_all_code, dist = vq(rms_all_asmatrix, codebook)     
-                rms_all_best_distortion = rms_all_distortion 
-                    
-        
-        # same as above
-        rms_sub_distortion = 0
-        rms_sub_best_distortion = None
-        for k in range(2,max_clust):
-            codebook, rms_sub_distortion = kmeans(rms_sub_asmatrix, k)
-            # penalty based on number of clusters
-            rms_sub_distortion = (rms_sub_distortion +
-                                  (k * 0.3 * rms_sub_distortion)
-                                  )         
-            if rms_sub_distortion < rms_sub_best_distortion \
-                       or rms_sub_best_distortion == None:
+                if rms_all_distortion < rms_all_best_distortion \
+                           or rms_all_best_distortion == None:
+                    rms_all_code, dist = vq(rms_all_asmatrix, codebook)     
+                    rms_all_best_distortion = rms_all_distortion 
+                        
             
-                test_code, dist = vq(rms_sub_asmatrix, codebook)
-                test_dict = {}
-                for cluster in test_code:
-                    if cluster in test_dict:
-                        test_dict[cluster] = test_dict[cluster] + 1
-                    else:
-                        test_dict[cluster] = 1
-                check = False
-                for key in test_dict:
-                    if test_dict[key] == 1:
-                        check = True        
-               
-                # add to the distortion score if cluster has one member only
-                if check == True:
-                    rms_sub_distortion = rms_sub_distortion + \
-                                                (rms_sub_distortion * 0.3)
-            # now check again and set the value
-            if rms_sub_distortion < rms_sub_best_distortion \
-                       or rms_sub_best_distortion == None:
-                rms_sub_code, dist = vq(rms_sub_asmatrix, codebook)     
-                rms_sub_best_distortion = rms_sub_distortion  
+            # same as above
+            rms_sub_distortion = 0
+            rms_sub_best_distortion = None
+            for k in range(2,max_clust):
+                codebook, rms_sub_distortion = kmeans(rms_sub_asmatrix, k)
+                # penalty based on number of clusters
+                rms_sub_distortion = (rms_sub_distortion +
+                                      (k * 0.3 * rms_sub_distortion)
+                                      )         
+                if rms_sub_distortion < rms_sub_best_distortion \
+                           or rms_sub_best_distortion == None:
+                
+                    test_code, dist = vq(rms_sub_asmatrix, codebook)
+                    test_dict = {}
+                    for cluster in test_code:
+                        if cluster in test_dict:
+                            test_dict[cluster] = test_dict[cluster] + 1
+                        else:
+                            test_dict[cluster] = 1
+                    check = False
+                    for key in test_dict:
+                        if test_dict[key] == 1:
+                            check = True        
+                   
+                    # add to the distortion score if cluster has one member only
+                    if check == True:
+                        rms_sub_distortion = rms_sub_distortion + \
+                                                    (rms_sub_distortion * 0.3)
+                # now check again and set the value
+                if rms_sub_distortion < rms_sub_best_distortion \
+                           or rms_sub_best_distortion == None:
+                    rms_sub_code, dist = vq(rms_sub_asmatrix, codebook)     
+                    rms_sub_best_distortion = rms_sub_distortion  
+            
+            # don't use atoms removed if there were no atoms removed
+            if no_atoms_removed == True:
+                atoms_removed_best_distortion = 100000000000000
+            
+            
+            # now, check which of the three matricies gave the best clusters,
+            # from their best clusters
+            # only use one set of clusters, the one with the lowest distortion
+            if (atoms_removed_best_distortion < rms_all_best_distortion and \
+                       atoms_removed_best_distortion < rms_sub_best_distortion) \
+                       and no_atoms_removed == False:
+                best_code = atoms_code
+                num_clust = max(best_code) + 1            
+                print("There are " +
+                      str(num_clust) +
+                      " clusters, and best results came from clustering by: " +
+                      "number of atoms removed from core."
+                      )
+            elif rms_all_best_distortion < atoms_removed_best_distortion and \
+                         rms_all_best_distortion < rms_sub_best_distortion:
+                best_code = rms_all_code
+                num_clust = max(best_code) + 1            
+                print("There are " +
+                      str(num_clust) +
+                      " clusters, and best results came from clustering by: rms_all"
+                      )
+            elif rms_sub_best_distortion < rms_all_best_distortion and \
+                         rms_sub_best_distortion < atoms_removed_best_distortion:
+                best_code = rms_sub_code
+                num_clust = max(best_code) + 1            
+                print("There are " +
+                      str(num_clust) +
+                      " clusters, and best results came from clustering by: rms_subset"
+                      )
+            elif rms_sub_best_distortion == rms_all_best_distortion and \
+                         no_atoms_removed == True:
+                best_code = rms_all_code
+                num_clust = max(best_code) + 1            
+                print("There are " +
+                      str(num_clust) +
+                      " clusters, and best results came from clustering by: rms_all"
+                      )                       
+            # this case should never occur. This was just for debugging.
+            else:
+                best_code = rms_all_code
+                num_clust = max(best_code) + 1            
+                print("There was a problem with the cutoff distance... please"
+                      " make it smaller."
+                      )
         
-        # don't use atoms removed if there were no atoms removed
-        if no_atoms_removed == True:
-            atoms_removed_best_distortion = 100000000000000
-        
-        
-        # now, check which of the three matricies gave the best clusters,
-        # from their best clusters
-        # only use one set of clusters, the one with the lowest distortion
-        if (atoms_removed_best_distortion < rms_all_best_distortion and \
-                   atoms_removed_best_distortion < rms_sub_best_distortion) \
-                   and no_atoms_removed == False:
-            best_code = atoms_code
-            num_clust = max(best_code) + 1            
-            print("There are " +
-                  str(num_clust) +
-                  " clusters, and best results came from clustering by: " +
-                  "number of atoms removed from core."
-                  )
-        elif rms_all_best_distortion < atoms_removed_best_distortion and \
-                     rms_all_best_distortion < rms_sub_best_distortion:
-            best_code = rms_all_code
-            num_clust = max(best_code) + 1            
-            print("There are " +
-                  str(num_clust) +
-                  " clusters, and best results came from clustering by: rms_all"
-                  )
-        elif rms_sub_best_distortion < rms_all_best_distortion and \
-                     rms_sub_best_distortion < atoms_removed_best_distortion:
-            best_code = rms_sub_code
-            num_clust = max(best_code) + 1            
-            print("There are " +
-                  str(num_clust) +
-                  " clusters, and best results came from clustering by: rms_subset"
-                  )
-        elif rms_sub_best_distortion == rms_all_best_distortion and \
-                     no_atoms_removed == True:
-            best_code = rms_all_code
-            num_clust = max(best_code) + 1            
-            print("There are " +
-                  str(num_clust) +
-                  " clusters, and best results came from clustering by: rms_all"
-                  )                       
-        # this case should never occur. This was just for debugging.
-        else:
-            best_code = rms_all_code
-            num_clust = max(best_code) + 1            
-            print("There was a problem with the cutoff distance... please"
-                  " make it smaller."
-                  )
+        elif options.cluster_method == "Affinity Propagation":
 
+            from sklearn.cluster import AffinityPropagation
+            from sklearn import metrics
+
+            # affinity propagation using atoms removed
+            X = np.array(atoms_removed_array_list)
+            X = X * -1
+            af = AffinityPropagation(preference = X.min(), 
+                                     affinity = "precomputed",
+                                     max_iter=200).fit(X)
+
+            cluster_centers_indices = af.cluster_centers_indices_
+            labels = af.labels_
+
+            # if only one cluster was detected, use the median as the preference
+            # rather than the min, which will find more clusters (ideally)
+            if len(np.unique(labels)) == 1:
+                af = AffinityPropagation(preference = np.median(X), 
+                                         affinity = "precomputed",
+                                         max_iter=200).fit(X)
+
+                cluster_centers_indices = af.cluster_centers_indices_
+                labels = af.labels_    
+
+            atoms_n_clusters = str(len(cluster_centers_indices))
+            if len(np.unique(labels)) != 1:
+                atoms_score = metrics.silhouette_score(X, labels, metric='precomputed')
+            else:
+                atoms_score = 0
+            atoms_code = labels
+
+
+            # affinity propagation using rms_all
+            X = np.array(rms_all_array_list)
+            X = X * -1
+            af = AffinityPropagation(preference = X.min(), 
+                                     affinity = "precomputed",
+                                     max_iter=200).fit(X)
+
+            cluster_centers_indices = af.cluster_centers_indices_
+            labels = af.labels_
+
+            # if only one cluster was detected, use the median as the preference
+            # rather than the min, which will find more clusters (ideally)
+            if len(np.unique(labels)) == 1:
+                af = AffinityPropagation(preference = np.median(X), 
+                                         affinity = "precomputed",
+                                         max_iter=200).fit(X)
+
+                cluster_centers_indices = af.cluster_centers_indices_
+                labels = af.labels_    
+            rms_all_n_clusters = len(cluster_centers_indices)
+            if len(np.unique(labels)) != 1:
+                rms_all_score = metrics.silhouette_score(X, labels, metric='precomputed')
+            else:
+                rms_all_score = 0
+            rms_all_code = labels
+
+
+            # affinity propagation using rms_sub
+            X = np.array(rms_sub_array_list)
+            X = X * -1
+            af = AffinityPropagation(preference = X.min(), 
+                                     affinity = "precomputed",
+                                     max_iter=200).fit(X)
+
+            cluster_centers_indices = af.cluster_centers_indices_
+            labels = af.labels_
+
+
+            # if only one cluster was detected, use the median as the preference
+            # rather than the min, which will find more clusters (ideally)
+            if len(np.unique(labels)) == 1:
+                af = AffinityPropagation(preference = np.median(X), 
+                                         affinity = "precomputed",
+                                         max_iter=200).fit(X)
+
+                cluster_centers_indices = af.cluster_centers_indices_
+                labels = af.labels_            
+
+
+            rms_sub_n_clusters = len(cluster_centers_indices)        
+            if len(np.unique(labels)) != 1:        
+                rms_sub_score = metrics.silhouette_score(X, labels, metric='precomputed')
+            else:
+                rms_sub_score = 0
+            rms_sub_code = labels
+
+
+            combined = (
+                       whiten(np.array(atoms_removed_array_list)) + \
+                       whiten(np.array(rms_sub_array_list))
+                       )
+
+            X = np.array(combined)
+            X = X * -1
+            af = AffinityPropagation(preference = X.min(), 
+                                     affinity = "precomputed",
+                                     max_iter=200).fit(X)
+
+            cluster_centers_indices = af.cluster_centers_indices_
+            labels = af.labels_
+
+            # if only one cluster was detected, use the median as the preference
+            # rather than the min, which will find more clusters (ideally)        
+            if len(np.unique(labels)) == 1:
+                af = AffinityPropagation(preference = np.median(X), 
+                                         affinity = "precomputed",
+                                         max_iter=200).fit(X)
+
+                cluster_centers_indices = af.cluster_centers_indices_
+                labels = af.labels_   
+
+            combined_n_clusters = len(cluster_centers_indices)        
+            if len(np.unique(labels)) != 1:        
+                combined_score = metrics.silhouette_score(X, labels, metric='precomputed')
+            else:
+                combined_score = 0
+            combined_code = labels
+
+
+            best_code = None
+            best_n = None
+            best_method = "error"
+
+            # evaluate the best feature for finding clusters
+            if combined_score > atoms_score and\
+               combined_score > rms_all_score and\
+               combined_score > rms_sub_score and\
+               no_atoms_removed == False:
+                best_code = combined_code
+                best_n = combined_n_clusters
+                best_method = "number of atoms removed from core AND RMSD of core atoms"
+            elif atoms_score > rms_all_score and\
+                 atoms_score > rms_sub_score and\
+                 atoms_score > combined_score and\
+                 no_atoms_removed == False:
+                best_code = atoms_code
+                best_n = atoms_n_clusters
+                best_method = "number of atoms removed from core"
+            elif rms_all_score > atoms_score and\
+                 rms_all_score > combined_score and\
+                 rms_all_score >= rms_sub_score:
+                best_code = rms_all_code
+                best_n = rms_all_n_clusters
+                best_method = "RMSD of all atoms"
+            elif rms_sub_score > atoms_score and\
+                 rms_sub_score > combined_score and\
+                 rms_sub_score > rms_all_score:
+                best_code = rms_sub_code
+                best_n = rms_sub_n_clusters
+                best_method = "RMSD of core atoms"
+
+            print "There are " + str(best_n) + " clusters, as determined by" +\
+                  " clustering using " + best_method + "."
+
+            num_clust = best_n        
+        
+        
+        
         # get the pairwise list of all the clusters compared against each other,
         # as we did with x,y values above
         cluster_combos = combinations(range(num_clust),2)
@@ -4543,6 +4713,8 @@ class Analyze:
         self.maxclust.set(3)
         self.auto = IntVar(self.rootWindow)
         self.auto.set(0)
+        self.cluster_method = StringVar(self.rootWindow);
+        self.cluster_method.set("K-means");
         self.avg = IntVar(self.rootWindow)
         self.avg.set(0)
         self.color = IntVar(self.rootWindow)
@@ -4675,17 +4847,44 @@ class Analyze:
                                )
 
 
+
+
+        method_label = Label(self.rootWindow, 
+                           text = "Choose clustering method: "
+                           )
+        method_label.grid(row = 8, 
+                        column = 0, 
+                        sticky = W
+                        )
+        self.method_dropdown = OptionMenu(self.rootWindow, 
+                                   self.cluster_method, 
+                                   "K-means",  
+                                   "Affinity Propagation", 
+                                   command=self.kmeans_check
+                                   )
+        self.method_dropdown.grid(row = 8, 
+                                  column = 1, 
+                                  sticky = E
+                                 )
+        self.method_dropdown.configure(state='disable')
+
+
+
+
+
+
+
         maxclust_label = Label(self.rootWindow, 
-                                text = "Max # of clusters to search for: "
+                                text = "Max # of clusters to search for (K-means): "
                                 )
-        maxclust_label.grid(row = 8, 
+        maxclust_label.grid(row = 9, 
                              column = 0,
                              sticky = W
                              )
         self.maxclust_entry = Entry(self.rootWindow, 
                                      textvariable = self.maxclust
                                      )
-        self.maxclust_entry.grid(row = 8, 
+        self.maxclust_entry.grid(row = 9, 
                                   column = 1,
                                   sticky=W
                                   )
@@ -4698,7 +4897,7 @@ class Analyze:
                                         text = "Use average deviation rather than RMSD.", 
                                         variable = self.avg
                                         )
-        avg_checkbutton.grid(row = 9, 
+        avg_checkbutton.grid(row = 10, 
                                column = 0,
                                columnspan = 2,
                                sticky = W
@@ -4710,7 +4909,7 @@ class Analyze:
                                                " (or group M LODR).", 
                                         variable = self.color
                                         )
-        color_checkbutton.grid(row = 10, 
+        color_checkbutton.grid(row = 11, 
                                column = 0,
                                columnspan = 2, 
                                sticky = W
@@ -4738,12 +4937,20 @@ class Analyze:
         if self.auto.get() == 1:
             self.groupm_entry.configure(state = 'disable')
             self.groupn_entry.configure(state = 'disable')
-            self.maxclust_entry.configure(state='normal')
+            self.method_dropdown.configure(state='normal')
+            if self.cluster_method.get() == "K-means":
+                self.maxclust_entry.configure(state='normal')
         else:
             self.groupm_entry.configure(state = 'normal')
             self.groupn_entry.configure(state = 'normal')
+            self.method_dropdown.configure(state='disable')
             self.maxclust_entry.configure(state='disable')
-
+    
+    def kmeans_check(self, dummy):
+        if self.cluster_method.get() == "K-means":
+            self.maxclust_entry.configure(state='normal')
+        else:
+            self.maxclust_entry.configure(state='disable')
       
 
     def select_ensemble(self):
@@ -4780,6 +4987,7 @@ class Analyze:
         options.auto = self.auto.get()
         if options.auto == 1:
             options.maxclust = self.maxclust.get()
+            options.cluster_method = self.cluster_method.get()
         else:
             try:
                 options.groupm = self.parse_range(str(self.groupm.get()))
