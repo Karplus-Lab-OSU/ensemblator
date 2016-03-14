@@ -3616,9 +3616,10 @@ elif options.analyze == True and options.prepare == False:
             rms_sub_code = labels
 
 
-            combined = (
-                       whiten(np.array(atoms_removed_array_list)) + \
-                       whiten(np.array(rms_sub_array_list))
+            combined = whiten(
+                       whiten(np.array(atoms_removed_array_list)) * \
+                       whiten(np.array(rms_sub_array_list)) * \
+                       whiten(np.array(rms_all_array_list))
                        )
 
             X = np.array(combined)
@@ -3659,7 +3660,7 @@ elif options.analyze == True and options.prepare == False:
                no_atoms_removed == False:
                 best_code = combined_code
                 best_n = combined_n_clusters
-                best_method = "number of atoms removed from core AND RMSD of core atoms"
+                best_method = "number of atoms removed from core AND RMSD of core atoms AND RMSD of all atoms"
             elif atoms_score > rms_all_score and\
                  atoms_score > rms_sub_score and\
                  atoms_score > combined_score and\
