@@ -200,10 +200,15 @@ Perform automatic clustering
 
     This option will allow the user to avoid telling the Ensemblator which groups to compare. Instead, the program will do all the pairwise analysis, and then use these results to determine which statistics (# of atoms removed, rmsd of all atoms, rmsd of core atoms) give the best clusters. There is a penalty for increasing numbers of clusters, which biases the discovery of clusters to lower numbers of clusters. Clustering is done using a k-means algorithm. The clustering algorithms will also disfavor a solution that has a cluster with only one member.
 
+Clustering Method
+^^^^^^^^^^^^^^^^^^^^
+
+    This option is used to select the clustering algorithm to use. The default is a (slightly) modified version of the k-means algorithm, the alternative is Affinity Propagation. Both of these methods are described in more detail 'below <#clustering-methods>'_     
+
 Max # of clusters to search for
 --------------------------------
 
-    Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 6. This can be increased as high as the user wants, or as low as 2. Higher values will slightly increase the computation time.
+    Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 6. This can be increased as high as the user wants, or as low as 2. Higher values will slightly increase the computation time. **This is only applicable when using the K-means clustering method.**
 
 Use average deviation rather than RMSD
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -243,6 +248,13 @@ Calculating LODR
 --------------------
 
     The locally overlaid dipeptide residual (LODR) is a simple distance-based quantity that does not define individual conformations but defines how closely two conformations compare. Conceptually, it reports information on each residue, by considering the dipeptide unit it makes with the previous residue. To calculate it, first the dipeptides are overlayed based on the Cα, C, O, N, and Cα atoms of the peptide unit preceding the residue, and then the LODR-score is defined as the RMSD between the C, O, N and Cα atoms in the subsequent peptide unit. Given this definition, no LODR values will exist for the first and last residues in a protein (as there are not complete peptide units on both sides of these residues), or for residues bordering chain-breaks. For more details see `this paper by Clark, Tronrud, and Karplus, which describes a much older version of the Ensemblator. <http://onlinelibrary.wiley.com/doi/10.1002/pro.2714/abstract>`_
+    
+Clustering Methods
+-------------------
+
+    Info about clustering goes here.
+
+
 
 The Output Files
 ^^^^^^^^^^^^^^^^^^^^
