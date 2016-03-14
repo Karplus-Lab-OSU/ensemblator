@@ -203,7 +203,7 @@ Perform automatic clustering
 Clustering Method
 ^^^^^^^^^^^^^^^^^^^^
 
-    This option is used to select the clustering algorithm to use. The default is a (slightly) modified version of the k-means algorithm, the alternative is Affinity Propagation. Both of these methods are described in more detail 'below <#clustering-methods>'_     
+    This option is used to select the clustering algorithm to use. The default is a (slightly) modified version of the k-means algorithm, the alternative is Affinity Propagation. Both of these methods are described in more detail `below. <#clustering-methods>`_     
 
 Max # of clusters to search for
 --------------------------------
