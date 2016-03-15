@@ -187,7 +187,7 @@ parser.add_option("--auto",
 parser.add_option("--method",
                   dest="cluster_method",
                   type = 'string', 
-                  default="K-means",
+                  default="Affinity Propagation",
                   help=("Must choose either 'K-means' or 'Affinity Propagation'."
                         " This option allows the user to specify the clustering method."
                         )
@@ -3348,12 +3348,69 @@ elif options.analyze == True and options.prepare == False:
             rms_all_asmatrix = whiten(np.asmatrix(rms_all_array_list))
             rms_sub_asmatrix = whiten(np.asmatrix(rms_sub_array_list)) 
             
+            #combined feature
+            combined_asmatrix = whiten(np.asmatrix(
+                                      np.array(atoms_removed_array_list) * \
+                                      np.array(atoms_removed_array_list) * \
+                                      np.array(rms_all_array_list) * \
+                                      np.array(rms_sub_array_list)
+                                      )) 
+            
+            
             # get the max number of clusters to search for from the user
             # optional. Default is 6 (as declared in the option.parser at the top)
             max_clust = options.maxclust + 1        
 
             
             if no_atoms_removed == False:
+                
+                # declare the variables in this scope as I'm going to want to keep them
+                combined_distortion = 0
+                combined_best_distortion = None
+                
+                
+                # for each number of clusters to search, find that number of clusters
+                for k in range(2,max_clust):
+                    codebook, combined_distortion = kmeans(combined_asmatrix, k)
+                    # penalty based on number of clusters, scales. 0.35 is an arbitrary
+                    # constant that biases this search in favor of lower numbers
+                    # of clusters. Based on datasets with known clusters, this seems to
+                    # perform well enough.
+                    combined_distortion = (combined_distortion +
+                                                (k * 0.3 * combined_distortion)
+                                                )        
+                    
+                    #if this is the best k value based on this distortion stat,
+                    # or if it's the first run. 
+                    if combined_distortion < combined_best_distortion \
+                               or combined_best_distortion == None:
+                        
+                        # check if any clusters only have one member
+                        test_code, dist = vq(combined_asmatrix, codebook)
+                        test_dict = {}
+                        for cluster in test_code:
+                            if cluster in test_dict:
+                                test_dict[cluster] = test_dict[cluster] + 1
+                            else:
+                                test_dict[cluster] = 1
+                        check = False
+                        # all the values in the test_dict should be > 1, as each
+                        # cluster should have the same group id at least twice, thus
+                        # the same key
+                        for key in test_dict:
+                            if test_dict[key] == 1:
+                                check = True
+                        
+                        # add to the distortion score if cluster has one member only
+                        if check == True:
+                            combined_distortion = combined_distortion + \
+                                                        (combined_distortion * 0.3)
+                    # now check again and set the value
+                    if combined_distortion < combined_best_distortion \
+                               or combined_best_distortion == None:
+                        combined_code, dist = vq(combined_asmatrix, codebook)
+                        combined_best_distortion = combined_distortion                
+                
                 
                 # declare the variables in this scope as I'm going to want to keep them
                 atoms_removed_distortion = 0
@@ -3484,8 +3541,21 @@ elif options.analyze == True and options.prepare == False:
             # now, check which of the three matricies gave the best clusters,
             # from their best clusters
             # only use one set of clusters, the one with the lowest distortion
-            if (atoms_removed_best_distortion < rms_all_best_distortion and \
-                       atoms_removed_best_distortion < rms_sub_best_distortion) \
+            if (combined_best_distortion < rms_all_best_distortion and \
+                       combined_best_distortion < atoms_removed_distortion and \
+                       combined_best_distortion < rms_sub_best_distortion) \
+                       and no_atoms_removed == False:
+                best_code = atoms_code
+                num_clust = max(best_code) + 1            
+                print("There are " +
+                      str(num_clust) +
+                      " clusters, and best results came from clustering by: " +
+                      "number of atoms removed from core, AND RMSD of all atoms," +
+                      " AND RMSD of core atoms."
+                      )
+            elif (atoms_removed_best_distortion < rms_all_best_distortion and \
+                       atoms_removed_best_distortion < rms_sub_best_distortion and \
+                       atoms_removed_best_distortion < combined_best_distortion) \
                        and no_atoms_removed == False:
                 best_code = atoms_code
                 num_clust = max(best_code) + 1            
@@ -3495,7 +3565,8 @@ elif options.analyze == True and options.prepare == False:
                       "number of atoms removed from core."
                       )
             elif rms_all_best_distortion < atoms_removed_best_distortion and \
-                         rms_all_best_distortion < rms_sub_best_distortion:
+                         rms_all_best_distortion < rms_sub_best_distortion and \
+                         rms_all_best_distortion < combined_best_distortion:
                 best_code = rms_all_code
                 num_clust = max(best_code) + 1            
                 print("There are " +
@@ -3503,7 +3574,8 @@ elif options.analyze == True and options.prepare == False:
                       " clusters, and best results came from clustering by: rms_all"
                       )
             elif rms_sub_best_distortion < rms_all_best_distortion and \
-                         rms_sub_best_distortion < atoms_removed_best_distortion:
+                         rms_sub_best_distortion < atoms_removed_best_distortion and \
+                         rms_sub_best_distortion < combined_best_distortion:
                 best_code = rms_sub_code
                 num_clust = max(best_code) + 1            
                 print("There are " +
@@ -3525,7 +3597,6 @@ elif options.analyze == True and options.prepare == False:
                 print("There was a problem with the cutoff distance... please"
                       " make it smaller."
                       )
-        
         elif options.cluster_method == "Affinity Propagation":
 
             from sklearn.cluster import AffinityPropagation
@@ -3616,11 +3687,10 @@ elif options.analyze == True and options.prepare == False:
             rms_sub_code = labels
 
 
-            combined = whiten(
-                       whiten(np.array(atoms_removed_array_list)) * \
-                       whiten(np.array(rms_sub_array_list)) * \
-                       whiten(np.array(rms_all_array_list))
-                       )
+            combined = np.array(atoms_removed_array_list) * \
+                       np.array(atoms_removed_array_list) * \
+                       np.array(rms_sub_array_list) * \
+                       np.array(rms_all_array_list)
 
             X = np.array(combined)
             X = X * -1
