@@ -3757,7 +3757,7 @@ elif options.analyze == True and options.prepare == False:
             num_clust = best_n      
         # get the pairwise list of all the clusters compared against each other,
         # as we did with x,y values above
-        cluster_combos = combinations(range(num_clust),2)
+        cluster_combos = combinations(range(int(num_clust)),2)
         
         # do analysis for each group vs each group!!
         # we need a legend in order to know which models belong to which group
