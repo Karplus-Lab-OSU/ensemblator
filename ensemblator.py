@@ -3241,7 +3241,7 @@ def analyze(options):
 
             atoms_n_clusters = str(len(cluster_centers_indices))
             if len(np.unique(labels)) != 1:
-                atoms_score = metrics.silhouette_score(X, labels, metric='precomputed')
+                atoms_score = metrics.silhouette_score(X, labels, metric='euclidean')
             else:
                 atoms_score = 0
             atoms_code = labels
@@ -3268,7 +3268,7 @@ def analyze(options):
                 labels = af.labels_    
             rms_all_n_clusters = len(cluster_centers_indices)
             if len(np.unique(labels)) != 1:
-                rms_all_score = metrics.silhouette_score(X, labels, metric='precomputed')
+                rms_all_score = metrics.silhouette_score(X, labels, metric='euclidean')
             else:
                 rms_all_score = 0
             rms_all_code = labels
@@ -3298,7 +3298,7 @@ def analyze(options):
 
             rms_sub_n_clusters = len(cluster_centers_indices)        
             if len(np.unique(labels)) != 1:        
-                rms_sub_score = metrics.silhouette_score(X, labels, metric='precomputed')
+                rms_sub_score = metrics.silhouette_score(X, labels, metric='euclidean')
             else:
                 rms_sub_score = 0
             rms_sub_code = labels
@@ -3331,7 +3331,7 @@ def analyze(options):
 
             combined_n_clusters = len(cluster_centers_indices)        
             if len(np.unique(labels)) != 1:        
-                combined_score = metrics.silhouette_score(X, labels, metric='precomputed')
+                combined_score = metrics.silhouette_score(X, labels, metric='euclidean')
             else:
                 combined_score = 0
             combined_code = labels
