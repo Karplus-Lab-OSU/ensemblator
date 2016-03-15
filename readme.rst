@@ -256,7 +256,7 @@ Calculating LODR
 Clustering Methods
 -------------------
 
-    Info about clustering goes here.
+    PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.
 
 
 
