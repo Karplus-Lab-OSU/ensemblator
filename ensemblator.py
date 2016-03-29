@@ -1774,7 +1774,11 @@ def prepare_input(options):
                     try:
                         seq = seq + str(to_single(residue.get_resname()))
                     except:
-                        pass
+                        # it's probably DNA or RNA rather than protein
+                        try:
+                            seq = seq + str(residue.get_resname())
+                        except:
+                            pass
                 seqs.write(">" + str(pdb) + "\n" + str(seq) + "\n")
             seqs.close()
 
