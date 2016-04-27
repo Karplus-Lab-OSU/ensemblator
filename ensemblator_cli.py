@@ -2049,18 +2049,18 @@ elif options.prepare == True and options.analyze == False:
 
     # runs eeprep
     legend_dict = eeprep(good_files)
-    test - legend - file = open('model_legend.tsv', 'w')
-    test - legend - file.write('model\tfilename\n')
+    legend_file = open('model_legend.tsv', 'w')
+    legend_file.write('model\tfilename\n')
     counter = 0
     for key in legend_dict:
         if legend_dict[key] == "REMOVED FROM FINAL ENSEMBLE":
-            test - legend - file.write("NA" + "\t" + str(legend_dict[key]) +
+            legend_file.write("NA" + "\t" + str(legend_dict[key]) +
                                        '\n')
         else:
-            test - legend - file.write(str(counter) + "\t" + str(legend_dict[
+            legend_file.write(str(counter) + "\t" + str(legend_dict[
                 key])[8:len(str(legend_dict[key]))] + '\n')
             counter += 1
-    test - legend - file.close()
+    legend_file.close()
 
     #cleaning up
     for prepped_file in prepped_files_list:
