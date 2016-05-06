@@ -43,7 +43,6 @@ Installation:
 
 There are a few ways to install and use the *Ensemblator*:
 
-1. Download a `binary <download_binary.md>`_ for your system, and ensure it is executable. Then run it! To use the sequence alignment functionality you will still need to separately install 'muscle', as described below.
 2. Run the source code:
    
    a. `ensemblator.py <ensemblator.py>`_ - The GUI version of the *Ensemblator*. As above you will need to make it executable, or run it using python from the command line. Unlike running from the binary, you will need to ensure you meet all the requirements outlined in the section below.
