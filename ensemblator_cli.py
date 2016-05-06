@@ -3061,12 +3061,11 @@ elif options.analyze == True and options.prepare == False:
             rms_sub_asmatrix = whiten(np.asmatrix(rms_sub_array_list))
 
             #combined feature
-            combined_asmatrix = whiten(np.asmatrix(
-                                      np.array(atoms_removed_array_list) * \
-                                      np.array(atoms_removed_array_list) * \
-                                      np.array(rms_all_array_list) * \
-                                      np.array(rms_sub_array_list)
-                                      ))
+            combined_asmatrix = whiten(np.asmatrix(np.sqrt(
+                                np.square(np.array(atoms_removed_array_list)) + \
+                                np.square(np.array(rms_all_array_list)) + \
+                                np.square(np.array(rms_sub_array_list))
+                                )))
 
             # get the max number of clusters to search for from the user
             # optional. Default is 6 (as declared in the option.parser at the top)
@@ -3381,10 +3380,11 @@ elif options.analyze == True and options.prepare == False:
             rms_sub_code = labels
 
 
-            combined = np.array(atoms_removed_array_list) * \
-                       np.array(atoms_removed_array_list) * \
-                       np.array(rms_sub_array_list) * \
-                       np.array(rms_all_array_list)
+            combined = np.sqrt(
+                               np.square(np.array(atoms_removed_array_list)) + \
+                               np.square(np.array(rms_all_array_list)) + \
+                               np.square(np.array(rms_sub_array_list))
+                               )
 
             X = np.array(combined)
             X = X * -1

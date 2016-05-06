@@ -2969,12 +2969,11 @@ def analyze(options):
             rms_sub_asmatrix = whiten(np.asmatrix(rms_sub_array_list))
 
             #combined feature
-            combined_asmatrix = whiten(np.asmatrix(
-                                      np.array(atoms_removed_array_list) * \
-                                      np.array(atoms_removed_array_list) * \
-                                      np.array(rms_all_array_list) * \
-                                      np.array(rms_sub_array_list)
-                                      ))
+            combined_asmatrix = whiten(np.asmatrix(np.sqrt(
+                                np.square(np.array(atoms_removed_array_list)) + \
+                                np.square(np.array(rms_all_array_list)) + \
+                                np.square(np.array(rms_sub_array_list))
+                                )))
 
 
             # get the max number of clusters to search for from the user
@@ -3308,10 +3307,11 @@ def analyze(options):
             rms_sub_code = labels
 
 
-            combined = np.array(atoms_removed_array_list) * \
-                       np.array(atoms_removed_array_list) * \
-                       np.array(rms_sub_array_list) * \
-                       np.array(rms_all_array_list)
+            combined = np.sqrt(
+                               np.square(np.array(atoms_removed_array_list)) + \
+                               np.square(np.array(rms_all_array_list)) + \
+                               np.square(np.array(rms_sub_array_list))
+                               )
 
 
             X = np.array(combined)
