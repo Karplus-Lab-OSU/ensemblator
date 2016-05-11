@@ -3020,7 +3020,7 @@ def analyze(options):
 
             af = AffinityPropagation(preference = X.min(),
                                      affinity = "precomputed",
-                                     max_iter=200).fit(X)
+                                     max_iter=2000).fit(X)
 
             cluster_centers_indices = af.cluster_centers_indices_
             labels = af.labels_
@@ -3030,7 +3030,7 @@ def analyze(options):
             if len(np.unique(labels)) == 1:
                 af = AffinityPropagation(preference = np.median(X),
                                          affinity = "precomputed",
-                                         max_iter=200).fit(X)
+                                         max_iter=2000).fit(X)
 
                 cluster_centers_indices = af.cluster_centers_indices_
                 labels = af.labels_
@@ -3038,12 +3038,31 @@ def analyze(options):
             n_clusters = str(len(cluster_centers_indices))
             if len(np.unique(labels)) != 1:
                 sil_score = metrics.silhouette_score(X, labels, metric='euclidean')
+                sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
+                sil_scores_out = open("sil_scores.tsv", "w")
+                counter = 0
+                sil_scores_out.write("id" + "\t" + 
+                                     "cluster" + "\t" + 
+                                     "sil_score" + "\n")
             else:
                 sil_score = 0
             best_code = labels
-
+            
+            
+            
             print "\nThere are " + str(n_clusters) + " clusters, with a mean " + \
-                  "silhouette score of " + str(sil_score) + ".\n" 
+                  "silhouette score of " + str(sil_score) + "." 
+            print "Sillhouette Scores saved in 'sil_scores.tsv'\n"
+            
+            
+            
+            for label in labels:
+                sil_scores_out.write(str(counter) + "\t" + 
+                                     str(label) + "\t" + 
+                                     str(sil_scores[counter]) + "\n")
+                counter += 1
+            
+            
             num_clust = n_clusters
 
 
