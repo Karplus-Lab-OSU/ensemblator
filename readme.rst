@@ -255,6 +255,9 @@ Calculating LODR
 Clustering Methods
 -------------------
 
+    The *distance score* for each pair of models is used to cluster the models. The distance score is defined as follows:
+        (RMS\ :sub:`core`\ :sup:`fraction of atoms in core`\ RMS\ :sub:`non-core`\ :sup:`fraction of atoms outside core`  
+
     PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.
 
 
