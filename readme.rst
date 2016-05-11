@@ -265,7 +265,7 @@ Clustering Methods
             * RMS\ :sub:`nc` is the RMS of all the non-core atoms
             * p is the fraction of atoms in the core
 
-    PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.
+    **PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.**
 
 
 
