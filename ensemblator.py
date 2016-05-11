@@ -3048,7 +3048,7 @@ def analyze(options):
                     sil_scores_out.write(str(counter) + "\t" + 
                                          str(label) + "\t" + 
                                          str(sil_scores[counter]) + "\n")
-                counter += 1
+                    counter += 1
             else:
                 sil_score = 0
             best_code = labels
