@@ -261,9 +261,9 @@ Clustering Methods
         
         Where:
         
-            * **RMS\ :sub:`c`** is the RMS of all the core atoms
-            * **RMS\ :sub:`nc`** is the RMS of all the non-core atoms
-            * **p** is the fraction of atoms in the core
+            * RMS\ :sub:`c` is the RMS of all the core atoms
+            * RMS\ :sub:`nc` is the RMS of all the non-core atoms
+            * p is the fraction of atoms in the core
 
     PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.
 
