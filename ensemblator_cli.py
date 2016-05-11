@@ -3102,40 +3102,13 @@ elif options.analyze == True and options.prepare == False:
             from sklearn.cluster import AffinityPropagation
             from sklearn import metrics
 
-            # affinity propagation using atoms removed
-            X = np.array(dis_score_array_list)
-            X = X * -1
-            af = AffinityPropagation(preference=X.min(),
-                                     affinity="precomputed",
-                                     max_iter=200).fit(X)
-
-            cluster_centers_indices = af.cluster_centers_indices_
-            labels = af.labels_
-
-            # if only one cluster was detected, use the median as the preference
-            # rather than the min, which will find more clusters (ideally)
-            if len(np.unique(labels)) == 1:
-                af = AffinityPropagation(preference=np.median(X),
-                                         affinity="precomputed",
-                                         max_iter=200).fit(X)
-
-                cluster_centers_indices = af.cluster_centers_indices_
-                labels = af.labels_
-
-            atoms_n_clusters = str(len(cluster_centers_indices))
-            if len(np.unique(labels)) != 1:
-                atoms_score = metrics.silhouette_score(
-                    X, labels, metric='euclidean')
-            else:
-                atoms_score = 0
-            atoms_code = labels
-
+           
             # affinity propagation using dis_score_array_list
             X = np.array(dis_score_array_list)
             X = X * -1
             af = AffinityPropagation(preference=X.min(),
                                      affinity="precomputed",
-                                     max_iter=200).fit(X)
+                                     max_iter=2000).fit(X)
 
             cluster_centers_indices = af.cluster_centers_indices_
             labels = af.labels_
@@ -3145,14 +3118,26 @@ elif options.analyze == True and options.prepare == False:
             if len(np.unique(labels)) == 1:
                 af = AffinityPropagation(preference=np.median(X),
                                          affinity="precomputed",
-                                         max_iter=200).fit(X)
+                                         max_iter=2000).fit(X)
 
                 cluster_centers_indices = af.cluster_centers_indices_
                 labels = af.labels_
             n_clusters = len(cluster_centers_indices)
             if len(np.unique(labels)) != 1:
+                counter = 0
                 sil_score = metrics.silhouette_score(
                     X, labels, metric='euclidean')
+                sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
+                sil_scores_out = open("sil_scores.tsv", "w")
+                sil_scores_out.write("id" + "\t" + 
+                                     "cluster" + "\t" + 
+                                     "sil_score" + "\n")
+                for label in labels:
+                   sil_scores_out.write(str(counter) + "\t" +
+                                        str(label) + "\t" +
+                                        str(sil_scores[counter]) + "\n")
+                   counter += 1
+                
             else:
                 sil_score = 0
             
@@ -3160,7 +3145,8 @@ elif options.analyze == True and options.prepare == False:
             num_clust = n_clusters
 
             print "\nThere are " + str(n_clusters) + " clusters, with a mean " + \
-                  "silhouette score of " + str(sil_score) + ".\n"       
+                  "silhouette score of " + str(sil_score) + ".\n"
+            print "Sillhouette Scores saved in 'sil_scores.tsv'\n" 
         
         # get the pairwise list of all the clusters compared against each other,
         # as we did with x,y values above

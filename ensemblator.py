@@ -3044,6 +3044,11 @@ def analyze(options):
                 sil_scores_out.write("id" + "\t" + 
                                      "cluster" + "\t" + 
                                      "sil_score" + "\n")
+                for label in labels:
+                    sil_scores_out.write(str(counter) + "\t" + 
+                                         str(label) + "\t" + 
+                                         str(sil_scores[counter]) + "\n")
+                counter += 1
             else:
                 sil_score = 0
             best_code = labels
@@ -3056,11 +3061,7 @@ def analyze(options):
             
             
             
-            for label in labels:
-                sil_scores_out.write(str(counter) + "\t" + 
-                                     str(label) + "\t" + 
-                                     str(sil_scores[counter]) + "\n")
-                counter += 1
+
             
             
             num_clust = n_clusters
