@@ -1688,7 +1688,7 @@ def get_rms_non_core(x,y,atoms_outside_core):
             for atom in ref_res:
                 atomid = atom.id
                 atom_deets = [resid, atomid]
-                if atom_deets in atoms_to_ignore:
+                if atom_deets in atoms_outside_core:
                     # SVDSuperimposer only works with np.array of the coords
                     # of the atoms
                     # normally Superimposer just gets this itself, here we
@@ -1699,7 +1699,7 @@ def get_rms_non_core(x,y,atoms_outside_core):
             for atom in alt_res:
                 atomid = atom.id
                 atom_deets = [resid, atomid]
-                if atom_deets in atoms_to_ignore:
+                if atom_deets in atoms_outside_core:
                     alt_atoms.append(atom.coord)
                 else:
                     pass
@@ -3021,7 +3021,7 @@ elif options.analyze == True and options.prepare == False:
 
         # this is used to generate ranges, it's so I know what the highest number
         # of models is (ie. how many columns and rows I need in my matrix)
-        max_y = int(max(list(rms_all.keys())))
+        max_y = int(max(list(dis_score.keys())))
 
         # making a list that will be formatted in such a way that I can turn it
         # into an array or a matrix
@@ -3103,7 +3103,7 @@ elif options.analyze == True and options.prepare == False:
             from sklearn import metrics
 
             # affinity propagation using atoms removed
-            X = np.array(atoms_removed_array_list)
+            X = np.array(dis_score_array_list)
             X = X * -1
             af = AffinityPropagation(preference=X.min(),
                                      affinity="precomputed",
