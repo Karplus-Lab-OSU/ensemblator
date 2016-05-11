@@ -291,6 +291,13 @@ The Output Files
 ---------------------------------------
       
       This tab-separated table contains information about the LODR calculated for each residue. The columns list from left to right: the residue id, the RMS of the LODR calculated for each pair of structures in group M, the same for group N, the same for each M to N pair, the minimum LODR for any member of M compared with any member of N, and which pair was that closest.
+      
+'sil_scores.tsv':
+---------------------------------------
+      
+      This tab-separated table contains information about the quality of the clusters discovered, if Affinity Propagation was the method used. The columns are the model id, the group id, and the score. The silhouette score is defined (from wikipedia) as:
+        
+            The silhouette value is a measure of how similar an object is to its own cluster (cohesion) compared to other clusters (separation). The silhouette ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters. If most objects have a high value, then the clustering configuration is appropriate. If many points have a low or negative value, then the clustering configuration may have too many or too few clusters.
 
 
 eeGlobal Results
