@@ -270,7 +270,7 @@ The Output Files
 'pairwise\_analysis.tsv'
 ---------------------------------------
 
-    This tab-separated table contains information about each of the pairs of models. From left to right, the columns list: the id of model x, the id of model y, the number of atoms removed from the core for this pair, the rmsd for all the atoms in the two structures, and the rmsd for only the core atoms in this pair of structures.
+    This tab-separated table contains information about each of the pairs of models. From left to right, the columns list: the id of model x, the id of model y, the percent of the total atoms in the core for this pair, the rmsd for all non-core atoms in the two structures, the rmsd for only the core atoms in this pair of structures, and the *distance score* calculated for these to structures (`see clustering methods for explanation <#clustering-methods>`_).
 
 'eeGlobal\_out.tsv'
 ---------------------------------------
