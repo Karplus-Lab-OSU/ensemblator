@@ -257,7 +257,13 @@ Clustering Methods
 
     The *distance score* for each pair of models is used to cluster the models. The distance score is defined as follows:
     
-        RMS\ :sub:`core`\ :sup:`fraction of atoms in core` * RMS\ :sub:`non-core`\ :sup:`fraction of atoms outside core`  
+        *distance score* = RMS\ :sub:`c`\ :sup:`*p*` * RMS\ :sub:`nc`\ :sup:`1 - *p*` 
+        
+        Where:
+        
+            * RMS\ :sub:`c` is the RMS of all the core atoms
+            * RMS\ :sub:`nc` is the RMS of all the non-core atoms
+            * *p* is the fraction of atoms in the core
 
     PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.
 
