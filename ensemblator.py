@@ -2017,7 +2017,7 @@ def analyze(options):
     # in the --auto analysis
     pairwise_file = open("pairwise_analysis.tsv", 'w')
     if options.avg == False:
-        pairwise_file.write("model_X\tmodel_Y\tcore_percent\trms_non_core\trms_core\tdis_score\n")
+        pairwise_file.write("model_X\tmodel_Y\tcore_percent\trmsd_non_core\trmsd_core\tdis_score\n")
     else:
         pairwise_file.write("model_X\tmodel_Y\tcore_percent\tavg_dev_non_core\tavg_dev_core\tdis_score\n")
 
