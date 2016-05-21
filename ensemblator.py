@@ -1253,29 +1253,22 @@ def final_aligner(outputname, atoms_to_ignore):
         # obsolete now that I have the chain always set to 'A'
         for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
             for ref_res, alt_res in zip(ref_chain, alt_chain) :
-                resid = ref_res.id[1]
-                for atom in ref_res:
-                    atomid = atom.id
-                    atom_deets = [resid,atomid]
-                    # if this atom and residue is in the list of non-core
-                    # atoms, do nothing
-                    if atom_deets in atoms_to_ignore:
-                        pass
-                    # otherwise, add it to the list of atoms to use during
-                    # alignment
-                    else:
-                        ref_atoms.append(ref_res[atom.id])
-                for atom in alt_res:
-                    atomid = atom.id
-                    atom_deets = [resid,atomid]
-                    # counts all atoms
+                ref_resid = ref_res.id[1]
+                alt_resid = alt_res.id[1]
+
+                for ref_atom, alt_atom in zip(ref_res, alt_res):
                     all_atom_counter += 1
-                    if atom_deets in atoms_to_ignore:
-                        pass
-                    else:
-                        # counts only the atoms included in the core
-                        counter += 1
-                        alt_atoms.append(alt_res[atom.id])
+                    ref_atomid = ref_atom.id
+                    ref_atom_deets = [ref_resid,ref_atomid]
+                    alt_atomid = alt_atom.id
+                    alt_atom_deets = [alt_resid,alt_atomid]
+                    
+                    # need this check because sometimes they are out of order
+                    if ref_atom_deets == alt_atom_deets:
+                        if not (ref_atom_deets in atoms_to_ignore):
+                            counter += 1
+                            ref_atoms.append(ref_res[ref_atom.id])
+                            alt_atoms.append(alt_res[alt_atom.id]) 
 
         #Align these paired atom lists:
         super_imposer = Superimposer()
@@ -1370,17 +1363,24 @@ def first_aligner(x,y):
     alt_atoms = []
     for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
         for ref_res, alt_res in zip(ref_chain, alt_chain) :
-            resid = ref_res.id[1]
+            ref_resid = ref_res.id[1]
+            alt_resid = alt_res.id[1]
             # include all atoms (ie. there are no testing criterea here)
-            for atom in ref_res:
-                ref_atoms.append(ref_res[atom.id])
-            for atom in alt_res:
-                # these counters are both here just for the purpose of nice
-                # output, could be replace by one counter
-                    # but I am too lazy to do it when it works just fine as is
-                all_atom_counter += 1
-                counter += 1
-                alt_atoms.append(alt_res[atom.id])
+            for ref_atom, alt_atom in zip(ref_res, alt_res):
+                
+                ref_atomid = ref_atom.id
+                ref_atom_deets = [ref_resid,ref_atomid]
+                alt_atomid = alt_atom.id
+                alt_atom_deets = [alt_resid,alt_atomid]
+                
+                # need this check because sometimes they are out of order
+                if ref_atom_deets == alt_atom_deets:
+                             
+                    ref_atoms.append(ref_res[ref_atom.id])
+                    alt_atoms.append(alt_res[alt_atom.id])
+                    all_atom_counter += 1
+                    counter += 1
+                
 
     #Align these paired atom lists:
     super_imposer = Superimposer()
@@ -1453,25 +1453,24 @@ def pairwise_realigner(x,y, atoms_to_ignore):
 
     for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
         for ref_res, alt_res in zip(ref_chain, alt_chain) :
-            resid = ref_res.id[1]
-            for atom in ref_res:
-                atomid = atom.id
-                atom_deets = [resid,atomid]
-                # just like in final_aligner, ignores atoms in the list of
-                # atoms to ignore
-                if atom_deets in atoms_to_ignore:
-                    pass
-                else:
-                    ref_atoms.append(ref_res[atom.id])
-            for atom in alt_res:
-                atomid = atom.id
-                atom_deets = [resid,atomid]
+                        
+            ref_resid = ref_res.id[1]
+            alt_resid = alt_res.id[1]
+
+            for ref_atom, alt_atom in zip(ref_res, alt_res):
                 all_atom_counter += 1
-                if atom_deets in atoms_to_ignore:
-                    pass
-                else:
-                    counter += 1
-                    alt_atoms.append(alt_res[atom.id])
+                ref_atomid = ref_atom.id
+                ref_atom_deets = [ref_resid,ref_atomid]
+                alt_atomid = alt_atom.id
+                alt_atom_deets = [alt_resid,alt_atomid]
+                
+                # need this check because sometimes they are out of order
+                if ref_atom_deets == alt_atom_deets:
+                    if not (ref_atom_deets in atoms_to_ignore):
+                        counter += 1
+                        ref_atoms.append(ref_res[ref_atom.id])
+                        alt_atoms.append(alt_res[alt_atom.id]) 
+
 
     #Align these paired atom lists:
     super_imposer = Superimposer()
@@ -1524,33 +1523,27 @@ def get_rms_core(x,y, atoms_to_ignore):
 
     for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
         for ref_res, alt_res in zip(ref_chain, alt_chain) :
-            resid = ref_res.id[1]
+            ref_resid = ref_res.id[1]
+            alt_resid = alt_res.id[1]
 
-            for atom in ref_res:
-                atomid = atom.id
-                atom_deets = [resid,atomid]
-                if atom_deets in atoms_to_ignore:
-                    pass
-                else:
-                    # SVDSuperimposer only works with np.array of the coords
-                    # of the atoms
-                    # normally Superimposer just gets this itself, here we
-                    # have to do it for the atoms manually.
-                    ref_atoms.append(atom.coord)
-            for atom in alt_res:
-                atomid = atom.id
-                atom_deets = [resid,atomid]
-                if atom_deets in atoms_to_ignore:
-                    pass
-                else:
-                    alt_atoms.append(atom.coord)
+            for ref_atom, alt_atom in zip(ref_res, alt_res):
+                ref_atomid = ref_atom.id
+                ref_atom_deets = [ref_resid,ref_atomid]
+                alt_atomid = alt_atom.id
+                alt_atom_deets = [alt_resid,alt_atomid]
+                
+                if ref_atom_deets == alt_atom_deets:
+                    if not (ref_atom_deets in atoms_to_ignore):
+                        ref_atoms.append(ref_atom.coord)
+                        alt_atoms.append(alt_atom.coord)           
+
     # actually uses the superimposer SVDsuperimposer which is internal to the
     # Superimposer() function
     sup = SVDSuperimposer()
-    # has to deal directly with the coords, nothing else
+    # has to deal directly with the coords, nothing else  
     coord1 = np.array(ref_atoms)
     coord2 = np.array(alt_atoms)
-
+    
     # exit if all atoms are flagged for removal (ie. if the sets of atoms to
     # superimpose are empty)
     try:
@@ -1567,7 +1560,7 @@ def get_rms_core(x,y, atoms_to_ignore):
         return 0.0
 
     # return the rmsd of the core atoms for this pair
-    return rms_core
+    return round(rms_core,3)
 
 
 # exactly as above, only it will do so for all atoms
@@ -1580,26 +1573,20 @@ def get_rms_non_core(x,y,atoms_outside_core):
 
     for (ref_chain, alt_chain) in zip(ref_model, alt_model) :
         for ref_res, alt_res in zip(ref_chain, alt_chain) :
-            resid = ref_res.id[1]
+            ref_resid = ref_res.id[1]
+            alt_resid = alt_res.id[1]
 
-            for atom in ref_res:
-                atomid = atom.id
-                atom_deets = [resid,atomid]
-                if atom_deets in atoms_outside_core:
-                    # SVDSuperimposer only works with np.array of the coords
-                    # of the atoms
-                    # normally Superimposer just gets this itself, here we
-                    # have to do it for the atoms manually.
-                    ref_atoms.append(atom.coord)
-                else:
-                    pass
-            for atom in alt_res:
-                atomid = atom.id
-                atom_deets = [resid,atomid]
-                if atom_deets in atoms_outside_core:
-                    alt_atoms.append(atom.coord)
-                else:
-                    pass
+            for ref_atom, alt_atom in zip(ref_res, alt_res):
+                ref_atomid = ref_atom.id
+                ref_atom_deets = [ref_resid,ref_atomid]
+                alt_atomid = alt_atom.id
+                alt_atom_deets = [alt_resid,alt_atomid]
+                
+                if ref_atom_deets == alt_atom_deets:
+                    if (ref_atom_deets in atoms_outside_core):
+                        ref_atoms.append(ref_atom.coord)
+                        alt_atoms.append(alt_atom.coord) 
+                        
     # actually uses the superimposer SVDsuperimposer which is internal to the
     # Superimposer() function
     sup = SVDSuperimposer()
@@ -1623,7 +1610,7 @@ def get_rms_non_core(x,y,atoms_outside_core):
         return 0.0
 
     # return the rmsd of the core atoms for this pair
-    return rms_non_core
+    return round(rms_non_core,3)
 
 # function that for a given pair, will create a list of all atoms that are
 # beyond the dcut value away from each other
@@ -2067,9 +2054,9 @@ def analyze(options):
         rms_non_core = get_rms_non_core(x,y, atoms_to_ignore[str(x) + "," + str(y)])
 
 
-        core_percent = (float(all_atoms) - float(len(atoms2))) / float(all_atoms)
-        dis_score = math.pow(rms_core, core_percent) * \
-                    math.pow(rms_non_core, (1 - core_percent))
+        core_percent = round((float(all_atoms) - float(len(atoms2))) / float(all_atoms), 3)
+        dis_score = round(math.pow(rms_core, core_percent) * \
+                    math.pow(rms_non_core, (1 - core_percent)), 3)
         
         
         # output information to table, tab separated
@@ -3027,15 +3014,18 @@ def analyze(options):
 
             # if only one cluster was detected, use the median as the preference
             # rather than the min, which will find more clusters (ideally)
-            if len(np.unique(labels)) == 1:
-                af = AffinityPropagation(preference = np.median(X),
+            pref = np.median(X)
+            while len(np.unique(labels)) == 1:
+                af = AffinityPropagation(preference = pref,
                                          affinity = "precomputed",
                                          max_iter=2000).fit(X)
 
                 cluster_centers_indices = af.cluster_centers_indices_
                 labels = af.labels_
+                pref = pref * 1.5
 
             n_clusters = str(len(cluster_centers_indices))
+                    
             if len(np.unique(labels)) != 1:
                 sil_score = metrics.silhouette_score(X, labels, metric='euclidean')
                 sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
@@ -3057,19 +3047,14 @@ def analyze(options):
             
             print "\nThere are " + str(n_clusters) + " clusters, with a mean " + \
                   "silhouette score of " + str(sil_score) + "." 
-            print "Sillhouette Scores saved in 'sil_scores.tsv'\n"
-            
-            
-            
-
-            
-            
+            print "Sillhouette Scores saved in 'sil_scores.tsv'\n"            
             num_clust = n_clusters
 
 
 
         # get the pairwise list of all the clusters compared against each other,
         # as we did with x,y values above
+        
         cluster_combos = combinations(range(int(num_clust)),2)
 
         # do analysis for each group vs each group!!
