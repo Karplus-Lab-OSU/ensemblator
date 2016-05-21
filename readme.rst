@@ -265,6 +265,8 @@ Clustering Methods
             * RMSD\ :sub:`nc` is the RMSD of all the non-core atoms
             * p is the fraction of atoms in the core
 
+    Using this score (which is similar to a weighted geometric mean) places a preferential weighting on things that are more similar, rather than things that are more different. In this way, being different (which is possible in many ways) contains less information about overall similarity than being the same (which is only possible in one way). This is best exemplified in the extreme case, where, for example, the core RMSD is 0. In this case, the overall distance score will be zero, even if the non-core is very different, meaning these two molecules will have a high similarity. This is different from an equation using sums, in which the deviant cores can still create distant partners even when the cores are identical.
+    
     **PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.**
 
 
