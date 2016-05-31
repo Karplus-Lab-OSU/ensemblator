@@ -2591,7 +2591,7 @@ def analyze(options):
         red = '#e41a1c'
         blue = '#377eb8'
         green = '#4daf4a'
-        purple = '#984ea3'
+        purple = '#decbe4'
         yellow = '#ffff33'
 
         print "Plotting eeGlobal:"
@@ -2683,7 +2683,6 @@ def analyze(options):
                 plt.plot(backbone_inter_rmsd.keys(),
                            backbone_inter_rmsd.values(),
                            purple,
-                           linestyle='--',
                            label="Between groups RMSD",
                            linewidth=1.5
                            )
@@ -2734,7 +2733,7 @@ def analyze(options):
                            )
                 plt.plot(eelocal_dict["inter_group_lodr"].keys(),
                            eelocal_dict["inter_group_lodr"].values(),
-                           purple, linestyle='--',
+                           purple,
                            label="Inter-group RMS-LODR",
                            linewidth=1.5
                            )
@@ -2785,7 +2784,6 @@ def analyze(options):
                 plt.plot(backbone_inter_rmsd.keys(),
                            backbone_inter_rmsd.values(),
                            purple,
-                           linestyle='--',
                            label="Between groups Mean",
                            linewidth=1.5
                            )
@@ -2839,7 +2837,6 @@ def analyze(options):
                 plt.plot(eelocal_dict["inter_group_lodr"].keys(),
                            eelocal_dict["inter_group_lodr"].values(),
                            purple,
-                           linestyle='--',
                            label="Inter-group Mean-LODR",
                            linewidth=1.5
                            )
@@ -3575,7 +3572,7 @@ def analyze(options):
             red = '#e41a1c'
             blue = '#377eb8'
             green = '#4daf4a'
-            purple = '#984ea3'
+            purple = '#decbe4'
             yellow = '#ffff33'
 
             print "Plotting eeGlobal:"
@@ -3680,7 +3677,6 @@ def analyze(options):
                     plt.plot(backbone_inter_rmsd.keys(),
                                backbone_inter_rmsd.values(),
                                purple,
-                               linestyle='--',
                                label="Between groups RMSD",
                                linewidth=1.5
                                )
@@ -3737,7 +3733,6 @@ def analyze(options):
                     plt.plot(eelocal_dict["inter_group_lodr"].keys(),
                                eelocal_dict["inter_group_lodr"].values(),
                                purple,
-                               linestyle='--',
                                label="Inter-group RMS-LODR",
                                linewidth=1.5
                                )
@@ -3793,7 +3788,6 @@ def analyze(options):
                     plt.plot(backbone_inter_rmsd.keys(),
                                backbone_inter_rmsd.values(),
                                purple,
-                               linestyle='--',
                                label="Between groups Mean",
                                linewidth=1.5
                                )
@@ -3850,7 +3844,6 @@ def analyze(options):
                     plt.plot(eelocal_dict["inter_group_lodr"].keys(),
                                eelocal_dict["inter_group_lodr"].values(),
                                purple,
-                               linestyle='--',
                                label="Inter-group Mean-LODR",
                                linewidth=1.5
                                )
