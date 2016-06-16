@@ -359,7 +359,7 @@ def eeprep(pdbs, bad_files):
             infile.close()
             all_atom_deets.sort()
             for deets in all_atom_deets:
-                outfile.write(all_atom_lines[deets])
+                temp.append(all_atom_lines[deets])
             # write endmdl line
             temp.append("ENDMDL\n")
             os.remove(filename)
