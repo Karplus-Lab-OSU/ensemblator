@@ -510,9 +510,19 @@ def eeprep(pdbs):
             # write model line
             outfile.write(modeltag)
             # write all the atom lines
+            # sort them so that they will never be out of order compared to each other
+            all_atom_lines = {}
+            all_atom_deets = []
             for line in infile:
                 if line[0:6] == 'ATOM  ':
-                    outfile.write(line)
+                    atom_deets = str(str(line[22:26].replace(" ", "")) + \
+                                     str(line[12:16].replace(" ", "")))
+                    all_atom_deets.append(atom_deets)
+                    all_atom_lines[atom_deets] = line
+            infile.close()
+            all_atom_deets.sort()
+            for deets in all_atom_deets:
+                outfile.write(all_atom_lines[deets])
             # write endmdl line
             outfile.write("ENDMDL\n")
             outfile.close()
