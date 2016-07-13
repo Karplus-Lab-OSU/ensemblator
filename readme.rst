@@ -60,6 +60,11 @@ system. Furthermore, you will need the following python packages:
 * numpy
 * biopython
 * matplotlib
+* SciPy
+* scikit-learn
+
+Some of these packages might be difficult to install using pip, but an alternative could be to use a scientific python installation like Anaconda.
+
 
 Optional:
 ==========
@@ -68,13 +73,7 @@ Optional:
    
    This software is needed for doing sequence alignments when building ensembles. This feature is VERY useful, I highly recommend it. Make sure that it is installed, and in your path as 'muscle'. If you have muscle in your path, but are still encountering errors, please try running from the command line. Sometimes when clicking the icon from the desktop, the PATH variable does not get imported correctly. I don't really know why this happens.
 
-* SciPy
-   
-   This python package is needed for the automatic clustering features of the Analysis portion of the *Ensemblator*. (Specifically the K-means method). Again, these features are very useful, so it's recommended that you install this package.
-   
-* scikit-learn
 
-    This python package is needed for the automatic clustering features of the Analysis portion of the *Ensemblator*. (Specifically the Affinity Propagation method.)
     
 Usage:
 *******
@@ -201,17 +200,13 @@ Group N models
 Perform automatic clustering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    This option will allow the user to avoid telling the Ensemblator which groups to compare. Instead, the program will do all the pairwise analysis, and then use these results to determine which statistics (# of atoms removed, rmsd of all atoms, rmsd of core atoms) give the best clusters. There is a penalty for increasing numbers of clusters, which biases the discovery of clusters to lower numbers of clusters. Clustering is done using a k-means algorithm. The clustering algorithms will also disfavor a solution that has a cluster with only one member.
-
-Clustering Method
-^^^^^^^^^^^^^^^^^^^^
-
-    This option is used to select the clustering algorithm to use. The choices are a (slightly) modified version of the k-means algorithm, or Affinity Propagation. Both of these methods are described in more detail `below. <#clustering-methods>`_     
+    This option will allow the user to avoid telling the Ensemblator which groups to compare. Instead, the program will do all the pairwise analysis, and then use these results to determine the best clusters to compare. 
+ 
 
 Max # of clusters to search for
 --------------------------------
 
-    Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 6. This can be increased as high as the user wants, or as low as 2. Higher values will slightly increase the computation time. **This is only applicable when using the K-means clustering method.**
+    Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 3. This can be increased as high as the user wants, or as low as 2. Higher values will increase the computation time, especially when more models are involved.
 
 Use average deviation rather than RMSD
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -266,8 +261,9 @@ Clustering Methods
             * p is the fraction of atoms in the core
 
     Using this score (which is similar to a weighted geometric mean) places a preferential weighting on things that are more similar, rather than things that are more different. In this way, being different (which is possible in many ways) contains less information about overall similarity than being the same (which is only possible in one way). This is best exemplified in the extreme case, where, for example, the core RMSD is 0. In this case, the overall distance score will be zero, even if the non-core is very different, meaning these two molecules will have a high similarity. This is different from an equation using sums, in which the deviant cores can still create distant partners even when the cores are identical.
-    
-    **PLACEHOLDER. INFO AND CITATIONS FOR CLUSTERING METHODS GO HERE.**
+
+    The actual clustering performed using this distance metric is an Ensemble Clustering method. First, Affinity Propagation (REF) is used, finding clusters with a preference value that increases (in magnitude) by 1% each iteration, until the number of clusters is the same as the number of models. Next, k-means clustering is performed, with increasing K (number of clusters). K increases from 2 to N-1, and ten iterations for each K value are done (due to the random nature of the centroid initializations). 
+    These experiments will fill a co-occurrence matrix, to be used for Evidence Accumulation (REF), which records how often each model is clustered with each other model. Finally, Agglomerative hierarchical clustering is performed on this co-occurrence matrix, to provide the final clusters used for comparisons. 
 
 
 
@@ -336,10 +332,6 @@ Known Bugs:
 * command 'muscle -in <somefile> -out <somefile>' not found. (Even though you really do have muscle installed) 
 
     This is a PATH related problem. Starting the *Ensemblator* from the command line using the source code seems to resolve this, as long as you really do have muscle in your path as 'muscle'. (eg. bash>$ python *Ensemblator*.py)
-
-* The binary file I downloaded doesn't do anything! 
-
-    There is probably some missing dependency. Try downloading either the CLI or the GUI source code, and running it yourself, after installing the various dependencies. The binary file works on my machine (where it was compiled), and a few other similar machines, but I know for a fact it doesn't work on all Linux machines.
 
 
 Bug Reports:
