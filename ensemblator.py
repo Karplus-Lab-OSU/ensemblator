@@ -23,7 +23,11 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from operator import itemgetter
 import platform
-
+from sklearn.cluster import AffinityPropagation
+from sklearn import metrics
+import random
+from scipy.cluster.vq import kmeans, vq
+from sklearn.cluster import AgglomerativeClustering
 
 os.path.realpath(os.path.dirname(sys.argv[0]))
 
@@ -71,7 +75,6 @@ class options:
         self.percent = 0.7
         self.dcut = 2.5
         self.auto = False
-        self.cluster_method = "Affinity Propagation"
         self.maxclust = 6
         self.groupm = StrVar()
         self.groupn = StrVar()
@@ -2911,10 +2914,12 @@ def analyze(options):
         # a nested dictionary for each of these three stats we are interested in
         dis_score = NestedDict()
 
+
         # build pairwise dictionaries with all the values of interest
         for line in lines:
             x = int(line.split()[0])
             y = int(line.split()[1])
+
             dis = float(line.split()[5])
             dis_score[x][y] = dis
 
@@ -2947,114 +2952,162 @@ def analyze(options):
             dis_score_array_list.append(this_x_dis_score)
 
 
-        if options.cluster_method == "K-means":
+        #### generate co-ocur matrix
 
-            # only need these packages for kmeans
-            import random
-            from scipy.cluster.vq import kmeans, vq
+        co_ocur = NestedDict()
 
-            # get whitened matrixes of these bad boys!
-            dis_score_asmatrix = whiten(np.asmatrix(dis_score_array_list))
-
-
-
-            # get the max number of clusters to search for from the user
-            # optional. Default is 6 (as declared in the option.parser at the top)
-            max_clust = options.maxclust + 1
-
-            # same as above
-            dis_score_distortion = 0
-            dis_score_best_distortion = None
-            for k in range(2,max_clust):
-                codebook, dis_score_distortion = kmeans(dis_score_asmatrix, k)
-                # penalty based on number of clusters
-                dis_score_distortion = (dis_score_distortion +
-                                      (k * 0.3 * dis_score_distortion)
-                                      )
-                if dis_score_distortion < dis_score_best_distortion \
-                           or dis_score_best_distortion == None:
-
-                    test_code, dist = vq(dis_score_asmatrix, codebook)
-                    test_dict = {}
-                    for cluster in test_code:
-                        if cluster in test_dict:
-                            test_dict[cluster] = test_dict[cluster] + 1
-                        else:
-                            test_dict[cluster] = 1
-                    check = False
-                    for key in test_dict:
-                        if test_dict[key] == 1:
-                            check = True
-
-                    # add to the distortion score if cluster has one member only
-                    if check == True:
-                        dis_score_distortion = dis_score_distortion + \
-                                                    (dis_score_distortion * 0.3)
-                # now check again and set the value
-                if dis_score_distortion < dis_score_best_distortion \
-                           or dis_score_best_distortion == None:
-                    dis_score_code, dist = vq(dis_score_asmatrix, codebook)
-                    dis_score_best_distortion = dis_score_distortion
+        # go from 0 to the max number of models
+        for x in range(0,max_y + 1):
+            # now do the same for y, now we are going over every pair
+            for y in range(0,max_y + 1):
+                co_ocur[x][y] = 0
 
 
-            best_code = dis_score_code
-            num_clust = max(best_code) + 1
-            print("\nThere were " + str(num_clust) + " clusters detected.\n")
+        print "\nPerforming iterative Affinity Propagation clustering:\n"
+        
+        # affinity propagation using dis score
+        X = np.array(dis_score_array_list)
+        # convert from a distance matrix to a similarity matrix
+        X = X * -1
 
-        elif options.cluster_method == "Affinity Propagation":
+        # start with minimum pref
+        pref = np.min(X[np.nonzero(X)])
 
-            from sklearn.cluster import AffinityPropagation
-            from sklearn import metrics
 
-            # affinity propagation using atoms removed
-            X = np.array(dis_score_array_list)
-            # convert from a distance matrix to a similarity matrix
-            X = X * -1
+        af = AffinityPropagation(preference = pref,
+                                 affinity = "precomputed",
+                                 max_iter=2000).fit(X)
 
-            af = AffinityPropagation(preference = X.min(),
+        cluster_centers_indices = af.cluster_centers_indices_
+        labels = af.labels_
+        pref = pref * 1.01
+
+        # now loop without recording until there are less than n clusters
+        while len(np.unique(labels)) == len(labels):
+            af = AffinityPropagation(preference = pref,
                                      affinity = "precomputed",
                                      max_iter=2000).fit(X)
 
             cluster_centers_indices = af.cluster_centers_indices_
             labels = af.labels_
+            pref = pref * 1.01
 
-            # if only one cluster was detected, use the median as the preference
-            # rather than the min, which will find more clusters (ideally)
-            pref = np.median(X)
-            while len(np.unique(labels)) == 1:
-                af = AffinityPropagation(preference = pref,
-                                         affinity = "precomputed",
-                                         max_iter=2000).fit(X)
 
-                cluster_centers_indices = af.cluster_centers_indices_
-                labels = af.labels_
-                pref = pref * 1.5
-
-            n_clusters = str(len(cluster_centers_indices))
+        # now record and loop until one cluster
+        while len(np.unique(labels)) != 1:
+            
+            # update co-ocur matrix
+            # go from 0 to the max number of models
+            for x in range(0,max_y + 1):
+                # now do the same for y, now we are going over every pair
+                for y in range(0,max_y + 1):
                     
-            if len(np.unique(labels)) != 1:
-                sil_score = metrics.silhouette_score(X, labels, metric='euclidean')
-                sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
-                sil_scores_out = open("sil_scores.tsv", "w")
-                counter = 0
-                sil_scores_out.write("id" + "\t" + 
-                                     "cluster" + "\t" + 
-                                     "sil_score" + "\n")
-                for label in labels:
-                    sil_scores_out.write(str(counter) + "\t" + 
-                                         str(label) + "\t" + 
-                                         str(sil_scores[counter]) + "\n")
-                    counter += 1
-            else:
-                sil_score = 0
-            best_code = labels
+                    if labels[x] == labels[y]:
+                        co_ocur[x][y] = co_ocur[x][y] + 1
+            
+
+            af = AffinityPropagation(preference = pref,
+                                     affinity = "precomputed",
+                                     max_iter=2000).fit(X)
+
+            cluster_centers_indices = af.cluster_centers_indices_
+            labels = af.labels_
+            pref = pref * 1.01
+
             
             
+
+        ################## k-means now
+
+        print "\nPerforming iterative K-means clustering:\n"
+
+        # get whitened matrixes of these bad boys!
+        dis_score_asmatrix = whiten(np.asmatrix(dis_score_array_list))
+
+        # loop from 2 to n-minus-one/2 clusters, some number i times each
+        for k in range(2, len(labels)):
             
-            print "\nThere are " + str(n_clusters) + " clusters, with a mean " + \
-                  "silhouette score of " + str(sil_score) + "." 
-            print "Sillhouette Scores saved in 'sil_scores.tsv'\n"            
-            num_clust = n_clusters
+            i = 0
+            
+            while i < 10:
+            
+            
+                codebook, dis_score_distortion = kmeans(dis_score_asmatrix, k)
+                labels, dist = vq(dis_score_asmatrix, codebook)
+                dis_score_best_distortion = dis_score_distortion
+                
+                i += 1
+                
+                # update co-ocur matrix
+                # go from 0 to the max number of models
+                for x in range(0,max_y + 1):
+                    # now do the same for y, now we are going over every pair
+                    for y in range(0,max_y + 1):
+                        
+                        if labels[x] == labels[y]:
+                            co_ocur[x][y] = co_ocur[x][y] + 1
+
+
+        print "\nPerforming Agglomerative clustering of ensemble of clusters:\n"
+
+
+        # now cluster the co_ocur matrix
+        co_ocur_array_list = []
+        # go from 0 to the max number of models
+        for x in range(0,max_y + 1):
+            this_x_co_ocur = []
+            # now do the same for y, now we are going over every pair
+            for y in range(0,max_y + 1):
+                # append these dictionary values to the list
+                this_x_co_ocur.append(co_ocur[x][y])
+
+            # now append them all, what the list looks like for each x (ie. row)
+            # is this [0,23,43,23,53,654,23] where index 0 is x0y0, index 1 is
+            # x0y1 etc.
+            co_ocur_array_list.append(this_x_co_ocur)
+
+        X = np.array(co_ocur_array_list)
+
+        # get the max number of clusters to search for from the user
+        # optional. Default is 6 (as declared in the option.parser at the top)
+        max_clust = options.maxclust + 1
+
+        # same as above
+        sil_score = -1.0
+        sil_score_best = -1.0
+        labels_best = []
+
+        for k in range(2,max_clust):
+            
+            labels = AgglomerativeClustering(k, affinity = "euclidean", linkage = "complete").fit_predict(X)
+            sil_score = metrics.silhouette_score(X, labels, metric='euclidean')
+            
+            # now check again and set the value
+            if sil_score > sil_score_best or sil_score_best == -1.0:
+                labels_best = labels
+                sil_score_best = sil_score
+
+
+        num_clust = len(np.unique(labels))
+                
+        sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
+        sil_scores_out = open("sil_scores.tsv", "w")
+        counter = 0
+        sil_scores_out.write("id" + "\t" + 
+                             "cluster" + "\t" + 
+                             "sil_score" + "\n")
+        for label in labels:
+            sil_scores_out.write(str(counter) + "\t" + 
+                                 str(label) + "\t" + 
+                                 str(sil_scores[counter]) + "\n")
+            counter += 1
+
+
+        print "\nThere are " + str(num_clust) + " clusters, with a mean " + \
+              "silhouette score of " + str(sil_score) + "." 
+        print "Sillhouette Scores saved in 'sil_scores.tsv'\n"
+
+        best_code = labels        
 
 
 
@@ -4484,8 +4537,6 @@ class Analyze:
         self.maxclust.set(3)
         self.auto = IntVar(self.rootWindow)
         self.auto.set(0)
-        self.cluster_method = StringVar(self.rootWindow);
-        self.cluster_method.set("Affinity Propagation");
         self.avg = IntVar(self.rootWindow)
         self.avg.set(0)
         self.color = IntVar(self.rootWindow)
@@ -4619,34 +4670,8 @@ class Analyze:
 
 
 
-
-        method_label = Label(self.rootWindow,
-                           text = "Choose clustering method: "
-                           )
-        method_label.grid(row = 8,
-                        column = 0,
-                        sticky = W
-                        )
-        self.method_dropdown = OptionMenu(self.rootWindow,
-                                   self.cluster_method,
-                                   "K-means",
-                                   "Affinity Propagation",
-                                   command=self.kmeans_check
-                                   )
-        self.method_dropdown.grid(row = 8,
-                                  column = 1,
-                                  sticky = E
-                                 )
-        self.method_dropdown.configure(state='disable')
-
-
-
-
-
-
-
         maxclust_label = Label(self.rootWindow,
-                                text = "Max # of clusters to search for (K-means): "
+                                text = "Max # of clusters to search for: "
                                 )
         maxclust_label.grid(row = 9,
                              column = 0,
@@ -4708,27 +4733,15 @@ class Analyze:
         if self.auto.get() == 1:
             self.groupm_entry.configure(state = 'disable')
             self.groupn_entry.configure(state = 'disable')
-            self.method_dropdown.configure(state='normal')
-            if self.cluster_method.get() == "K-means":
-                self.maxclust_entry.configure(state='normal')
+            self.maxclust_entry.configure(state='normal')
         else:
             self.groupm_entry.configure(state = 'normal')
             self.groupn_entry.configure(state = 'normal')
-            self.method_dropdown.configure(state='disable')
             self.maxclust_entry.configure(state='disable')
-
-    def kmeans_check(self, dummy):
-        if self.cluster_method.get() == "K-means":
-            self.maxclust_entry.configure(state='normal')
-        else:
-            self.maxclust_entry.configure(state='disable')
-
 
     def select_ensemble(self):
         self.status["text"] = "Waiting";
         self.ensemble = self.utility.select_input_ensemble(self.ensemble_selected)
-
-
 
     def select_pwd(self):
         self.status["text"] = "Waiting";
@@ -4758,7 +4771,6 @@ class Analyze:
         options.auto = self.auto.get()
         if options.auto == 1:
             options.maxclust = self.maxclust.get()
-            options.cluster_method = self.cluster_method.get()
         else:
             try:
                 options.groupm = self.parse_range(str(self.groupm.get()))
