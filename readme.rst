@@ -206,7 +206,7 @@ Perform automatic clustering
 Max # of clusters to search for
 --------------------------------
 
-    Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 3. This can be increased as high as the user wants, or as low as 2. Higher values will increase the computation time, especially when more models are involved.
+    Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 3. This can be increased as high as the user wants, or as low as 2. Higher values will not significantly increase the computation time, but can lead to less useful results. This value is worth playing around with.
 
 Use average deviation rather than RMSD
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -263,7 +263,7 @@ Clustering Methods
     Using this score (which is similar to a weighted geometric mean) places a preferential weighting on things that are more similar, rather than things that are more different. In this way, being different (which is possible in many ways) contains less information about overall similarity than being the same (which is only possible in one way). This is best exemplified in the extreme case, where, for example, the core RMSD is 0. In this case, the overall distance score will be zero, even if the non-core is very different, meaning these two molecules will have a high similarity. This is different from an equation using sums, in which the deviant cores can still create distant partners even when the cores are identical.
 
     The actual clustering performed using this distance metric is an Ensemble Clustering method. First, Affinity Propagation (REF) is used, finding clusters with a preference value that increases (in magnitude) by 1% each iteration, until the number of clusters is the same as the number of models. Next, k-means clustering is performed, with increasing K (number of clusters). K increases from 2 to N-1, and ten iterations for each K value are done (due to the random nature of the centroid initializations). 
-    These experiments will fill a co-occurrence matrix, to be used for Evidence Accumulation (REF), which records how often each model is clustered with each other model. Finally, Agglomerative hierarchical clustering is performed on this co-occurrence matrix, to provide the final clusters used for comparisons. 
+    These experiments will fill a co-occurrence matrix, to be used for Evidence Accumulation (REF), which records how often each model is clustered with each other model. Finally, Agglomerative hierarchical clustering is performed on this co-occurrence matrix, to provide the final clusters used for comparisons. The K value used will be whatever provides the highest mean Silhouette Score, between 2 and the maximum provided.
 
 
 
