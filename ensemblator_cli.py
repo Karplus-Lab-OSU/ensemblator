@@ -640,27 +640,27 @@ def xrayprep(pdb, output):
                 outputnames.append(str(eligo + "_model_" + str(
                     modelo) + "_chain_" + novacxenonomo + "_alt_" + alitipo +
                                        ".pdb"))
-
+    
     for outputname in outputnames:
         endosiero = open(outputname, 'r')
         os.remove(outputname)
         eldosiero = open(outputname, 'w')
 
         for line in endosiero:
-            if line[0:6] == 'ATOM  ':
+            if (line[0:6] == 'ATOM  ' or line[0:6] == 'HETATM') \
+                                      and line[17:20] != 'HOH':
                 new_line = line[0:16] +\
                              " " + \
                              line[17:21] + \
                              "A" + \
                              line[22:len(line)]
                 eldosiero.write(new_line)
-            elif line[0:6] == 'HETATM':
+            elif line[17:20] == 'HOH':
                 pass
             else:
                 new_line = line
                 eldosiero.write(new_line)
         eldosiero.close()
-
     return outputnames
 
 
@@ -1833,8 +1833,11 @@ elif options.prepare == True and options.analyze == False:
             fileout.write("ENDMDL")
             fileout.close()
             counter += 1
+    
+    
     # runs xray-prep
     else:
+    
         print("\n##################\n\nFormatting and seperating..."
               "\n\n##################\n")
         log.write("\n##################\n\nFormatting and seperating..."
@@ -1912,10 +1915,10 @@ elif options.prepare == True and options.analyze == False:
                         seq = seq + str(to_single(residue.get_resname()))
                     except:
                         # it's probably DNA or RNA rather than protein
-                        try:
+                        if residue.get_resname() in ['A','C','T','G']:
                             seq = seq + str(residue.get_resname())
-                        except:
-                            pass
+                        else:
+                            seq = seq + "X"
                 seqs.write(">" + str(pdb) + "\n" + str(seq) + "\n")
             seqs.close()
 

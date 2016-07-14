@@ -522,14 +522,15 @@ def xrayprep(pdb, output):
         with open(outputname,'r') as endosiero:
 
             for line in endosiero:
-                if line[0:6] == 'ATOM  ':
+                if (line[0:6] == 'ATOM  ' or line[0:6] == 'HETATM') \
+                                          and line[17:20] != 'HOH':
                     new_line = line[0:16] +\
                                  " " + \
                                  line[17:21] + \
                                  "A" + \
                                  line[22:len(line)]
-                    temp.append(new_line)
-                elif line[0:6] == 'HETATM':
+                    eldosiero.write(new_line)
+                elif line[17:20] == 'HOH':
                     pass
                 else:
                     new_line = line
@@ -1794,10 +1795,11 @@ def prepare_input(options):
                         seq = seq + str(to_single(residue.get_resname()))
                     except:
                         # it's probably DNA or RNA rather than protein
-                        try:
+                        if residue.get_resname() in ['A','C','T','G']:
                             seq = seq + str(residue.get_resname())
-                        except:
-                            pass
+                        else:
+                            seq = seq + "X"
+                        
                 seqs.write(">" + str(pdb) + "\n" + str(seq) + "\n")
             seqs.close()
 
