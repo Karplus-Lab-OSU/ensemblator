@@ -3217,15 +3217,15 @@ elif options.analyze == True and options.prepare == False:
                 sil_score_best = sil_score
 
 
-        num_clust = len(np.unique(labels))
+        num_clust = len(np.unique(labels_best))
                 
-        sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
+        sil_scores = metrics.silhouette_samples(X, labels_best, metric='euclidean')
         sil_scores_out = open("sil_scores.tsv", "w")
         counter = 0
         sil_scores_out.write("id" + "\t" + 
                              "cluster" + "\t" + 
                              "sil_score" + "\n")
-        for label in labels:
+        for label in labels_best:
             sil_scores_out.write(str(counter) + "\t" + 
                                  str(label) + "\t" + 
                                  str(sil_scores[counter]) + "\n")
@@ -3233,10 +3233,10 @@ elif options.analyze == True and options.prepare == False:
 
 
         print "\nThere are " + str(num_clust) + " clusters, with a mean " + \
-              "silhouette score of " + str(sil_score) + "." 
+              "silhouette score of " + str(sil_score_best) + "." 
         print "Sillhouette Scores saved in 'sil_scores.tsv'\n"
 
-        best_code = labels 
+        best_code = labels_best 
         
         # get the pairwise list of all the clusters compared against each other,
         # as we did with x,y values above
