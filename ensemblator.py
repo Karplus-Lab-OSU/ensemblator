@@ -529,7 +529,7 @@ def xrayprep(pdb, output):
                                  line[17:21] + \
                                  "A" + \
                                  line[22:len(line)]
-                    eldosiero.write(new_line)
+                    temp.append(new_line)
                 elif line[17:20] == 'HOH':
                     pass
                 else:
