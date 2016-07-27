@@ -922,23 +922,50 @@ def cluster_sep():
     group_set = set(group_list)
     group_list = list(group_set)
 
+
+    # read in model_legend, and build a dict linking the model id to the filename
+
+    model_dict = {}
+
+    try:
+        
+        mLegend = open("model_legend.tsv", "r")
+        for line in mLegend:
+            model_dict[line.split()[0]] = line.split()[1]
+        mLegend.close()
+               
+    except:
+        pass
+
+
+
     for key in group_list:
 
         output = open("group" + str(int(float(key))) + ".pdb", "w")
 
         old_line = None
+        model_id = None
+                
         for line in new_atoms:
             try:
                 if line[0:4] == "ATOM" or line[0:6] == "HETATM":
                     group = line[61:66]
             except:
                 pass
+                
+            #try to get the model id
+            try:
+                if old_line[0:5] == "MODEL":
+                    model_id = old_line.split()[1]
+            except:
+                pass
+                
             try:
                 try:
                     if group == key \
                             and (old_line[0:5] == "MODEL" \
                             or old_line[0:3] == "TER"):
-                        output.write(old_line)
+                        output.write(old_line[:-1] + " " + model_dict[model_id] + "\n")
                 except:
                     pass
                 if group == key \
@@ -985,6 +1012,21 @@ def cluster_sep_non_auto():
     no_group_N = False
     one_in_both = False
 
+
+    # read in model_legend, and build a dict linking the model id to the filename
+
+    model_dict = {}
+
+    try:
+        
+        mLegend = open("model_legend.tsv", "r")
+        for line in mLegend:
+            model_dict[line.split()[0]] = line.split()[1]
+        mLegend.close()
+    except:
+        pass
+        
+        
     for line in atoms:
         if line[0:5] == "MODEL":
             # get model number
@@ -1050,13 +1092,23 @@ def cluster_sep_non_auto():
                     group = line[61:66]
             except:
                 pass
+            
+            #try to get the model id
+            try:
+                if old_line[0:5] == "MODEL":
+                    model_id = old_line.split()[1]
+            except:
+                pass     
+                
+                
+                
             # if the b factor is the kind we are looking for (ie 2 or 1)
             try:
                 try:
                     if group == key \
                             and (old_line[0:5] == "MODEL" \
                             or old_line[0:3] == "TER"):
-                        output.write(old_line)
+                        output.write(old_line[:-1] + " " + model_dict[model_id] + "\n")
                 except:
                     pass
                 if group == key \
