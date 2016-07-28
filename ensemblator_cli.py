@@ -3206,17 +3206,24 @@ elif options.analyze == True and options.prepare == False:
         sil_score_best = -1.0
         labels_best = []
 
+        sil_out = open("clustering_silhoutte_scores.tsv","w")
+        sil_out.write("num_clust\tsil_score\n")
+
         for k in range(2,max_clust):
             
             labels = AgglomerativeClustering(k, affinity = "euclidean", linkage = "complete").fit_predict(X)
             sil_score = metrics.silhouette_score(X, labels, metric='euclidean')
+            
+            sil_out.write(str(k) + "\t" + str(sil_score) + "\n")
             
             # now check again and set the value
             if sil_score > sil_score_best or sil_score_best == -1.0:
                 labels_best = labels
                 sil_score_best = sil_score
 
-
+        sil_out.close()
+        
+        
         num_clust = len(np.unique(labels_best))
                 
         sil_scores = metrics.silhouette_samples(X, labels_best, metric='euclidean')
