@@ -2357,8 +2357,8 @@ elif options.analyze == True and options.prepare == False:
             # calulate silhouette score
             print "Calculating Global Silhoutte Scores:"
             inter_list = [x for x in itertools.product(options.groupm, options.groupn)]
-            m_list = permutations(options.groupm, r = 2)
-            n_list = permutations(options.groupn, r = 2)
+            m_list = combinations(options.groupm, r = 2)
+            n_list = combinations(options.groupn, r = 2)
                         
             m_dist_dict = {}
             inter_dist_dict = {}
@@ -2542,8 +2542,8 @@ elif options.analyze == True and options.prepare == False:
 
         # calulate LODR_sil
         try:
-            m_list = permutations(options.groupm, r=2)
-            n_list = permutations(options.groupn, r=2)
+            m_list = combinations(options.groupm, r=2)
+            n_list = combinations(options.groupn, r=2)
             inter_list = [x
                           for x in itertools.product(options.groupm, options.groupn)]
             print "Calculating LODR silhouette scores:"
@@ -3443,8 +3443,8 @@ elif options.analyze == True and options.prepare == False:
                 # calulate silhouette score
                 print "Calculating Global Silhoutte Scores:"
                 inter_list = [x for x in itertools.product(group_m, group_n)]
-                m_list = permutations(group_m, r = 2)
-                n_list = permutations(group_n, r = 2)
+                m_list = combinations(group_m, r = 2)
+                n_list = combinations(group_n, r = 2)
                                 
                 m_dist_dict = {}
                 inter_dist_dict = {}
@@ -3625,8 +3625,8 @@ elif options.analyze == True and options.prepare == False:
 
             # calulate LODR_sil
             try:
-                m_list = permutations(group_m, r=2)
-                n_list = permutations(group_n, r=2)
+                m_list = combinations(group_m, r=2)
+                n_list = combinations(group_n, r=2)
                 inter_list = [x
                               for x in itertools.product(group_m, group_n)]
                 print "Calculating LODR silhouette scores:"
