@@ -2940,7 +2940,17 @@ elif options.analyze == True and options.prepare == False:
                     backbone_sil[resid] = None
         except:
             pass
-
+        
+        try:
+            mean_sil = {}
+            for resid in range(min(resid_list), (max(resid_list) + 1)):
+                try:
+                    mean_sil[resid] = (backbone_sil[resid] + eelocal_dict["lodr_sil"][resid]) / 2
+                except:
+                    mean_sil[resid] = None
+        except:
+            pass
+            
         title = "eeGLOBAL_dcut=" + str(dcut)
         plt.figure()
         plt.plot(backbone_intra_m_rmsd.keys(),
@@ -3037,7 +3047,8 @@ elif options.analyze == True and options.prepare == False:
             plt.plot(backbone_sil.keys(),
                      backbone_sil.values(),
                      blue,
-                     label="Global Silhouette Scores",
+                     alpha=0.4,
+                     label="Global Silhouette Score",
                      linewidth=1.5)
         except:
             pass   
@@ -3045,7 +3056,17 @@ elif options.analyze == True and options.prepare == False:
             plt.plot(eelocal_dict["lodr_sil"].keys(),
                      eelocal_dict["lodr_sil"].values(),
                      green,
-                     label="LODR Silhouette Scores",
+                     alpha=0.4,
+                     label="LODR Silhouette Score",
+                     linewidth=1.5)
+        except:
+            pass
+        
+        try:
+            plt.plot(mean_sil.keys(),
+                     mean_sil.values(),
+                     red,
+                     label="Mean Silhouette Score",
                      linewidth=1.5)
         except:
             pass  
@@ -4010,6 +4031,18 @@ elif options.analyze == True and options.prepare == False:
                         backbone_sil[resid] = None
             except:
                 pass
+            
+            
+            try:
+                mean_sil = {}
+                for resid in range(min(resid_list), (max(resid_list) + 1)):
+                    try:
+                        mean_sil[resid] = (backbone_sil[resid] + eelocal_dict["lodr_sil"][resid]) / 2
+                    except:
+                        mean_sil[resid] = None
+            except:
+                pass
+            
                 
             try:
                 backbone_inter_rmsd = {}
@@ -4161,7 +4194,8 @@ elif options.analyze == True and options.prepare == False:
                 plt.plot(backbone_sil.keys(),
                          backbone_sil.values(),
                          blue,
-                         label="Global Silhouette Scores",
+                         alpha=0.4,
+                         label="Global Silhouette Score",
                          linewidth=1.5)
             except:
                 pass   
@@ -4169,10 +4203,20 @@ elif options.analyze == True and options.prepare == False:
                 plt.plot(eelocal_dict["lodr_sil"].keys(),
                          eelocal_dict["lodr_sil"].values(),
                          green,
-                         label="LODR Silhouette Scores",
+                         alpha=0.4,
+                         label="LODR Silhouette Score",
                          linewidth=1.5)
             except:
-                pass  
+                pass
+                
+            try:
+                plt.plot(mean_sil.keys(),
+                         mean_sil.values(),
+                         red,
+                         label="Mean Silhouette Score",
+                         linewidth=1.5)
+            except:
+                pass   
                                            
             plt.xlabel("Residue Number")
             plt.ylabel("Backbone Silhouette Score")
