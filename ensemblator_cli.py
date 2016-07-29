@@ -113,14 +113,6 @@ parser.add_option("--semipermissive",
                   " (missing residues). Will also remove structures if they"
                   " are too disordered (ie. have many ambigious missing "
                   " atoms.")
-parser.add_option("-s",
-                  "--skipxray",
-                  action="store_true",
-                  dest="skip",
-                  default=False,
-                  help="If set, will skip xray-prep module. Only use if" +
-                  " you know each file contains one model, one chain, " +
-                  "and one conformation.")
 parser.add_option(
     "-l",
     "--log",
@@ -194,18 +186,6 @@ parser.add_option("-n",
                         "Use dashes for a range, commas separate entries. "
                         "E.g. 1,3,5,8-19,23. OPTIONAL: do not include a "
                         "group N in order to do a single ensemble analysis."))
-parser.add_option("--skiplocal",
-                  action="store_true",
-                  dest="skiplocal",
-                  default=False,
-                  help=("If set, will skip eeLocal analysis. Useful if only "
-                        "changing dcut."))
-parser.add_option("--avg",
-                  action="store_true",
-                  dest="avg",
-                  default=False,
-                  help=("If set, will calculate and plot averages instead "
-                        "of RMS."))
 parser.add_option("--color",
                   action="store_true",
                   dest="color",
@@ -243,6 +223,23 @@ if not os.path.exists(options.pwd):
 #### Functions ####
 ################################################################################
 
+# function to get silhouette-like scores
+def get_sil(intra_dist_dict, inter_dist_dict):
+    
+    sil_dict = {}
+    
+    
+    for atom in intra_dist_dict:
+        try:
+            ai = np.mean(intra_dist_dict[atom])
+            bi = np.mean(inter_dist_dict[atom])
+            
+            sili = (bi - ai) / np.max([bi, ai])
+            sil_dict[atom] = sili
+        except:
+            sil_dict[atom] = None
+
+    return sil_dict
 
 def aligner(pdb):
     pdb_reader = PDBParser(PERMISSIVE=1, QUIET=True)
@@ -1354,19 +1351,6 @@ def get_rmsd(atom_dist_dict):
     return rmsd_dict
 
 
-# same as above basically but for getting the mean
-def get_mean(atom_dist_dict):
-
-    mean_dict = {}
-
-    for key in atom_dist_dict:
-        try:
-            avg = np.mean(atom_dist_dict[key])
-            mean_dict[key] = avg
-        except:
-            mean_dict[key] = None
-    return mean_dict
-
 
 # function to get both the minimum value in a dict[key], and the index from
 # that list that gave the min
@@ -1697,12 +1681,10 @@ def get_rms_core(x,y, atoms_to_ignore):
     # exit if all atoms are flagged for removal (ie. if the sets of atoms to
     # superimpose are empty)
     try:
-        if options.avg == False:
-            # internal code to calculate rms, not reccomended for users
-            # you don't know me
-            rms_core = sup._rms(coord1, coord2)
-        else:
-            rms_core = avg_calc_coords(coord1, coord2)
+        # "internal code to calculate rms, not reccomended for users"
+        # you don't know me
+        rms_core = sup._rms(coord1, coord2)
+
     except:
         # this elegent error message needs to be reworked when I rewrite all
         # the log write statements.
@@ -1746,12 +1728,10 @@ def get_rms_non_core(x,y,atoms_outside_core):
     # exit if all atoms are flagged for removal (ie. if the sets of atoms to
     # superimpose are empty)
     try:
-        if options.avg == False:
-            # internal code to calculate rms, not reccomended for users
-            # you don't know me
-            rms_non_core = sup._rms(coord1, coord2)
-        else:
-            rms_non_core = avg_calc_coords(coord1, coord2)
+        # internal code to calculate rms, not reccomended for users
+        # you don't know me
+        rms_non_core = sup._rms(coord1, coord2)
+
     except:
         # this elegent error message needs to be reworked when I rewrite all
         # the log write statements.
@@ -1866,45 +1846,24 @@ elif options.prepare == True and options.analyze == False:
     # writes a log file
     log = open("prepare_input.log", "a")
 
-    # skips xrayprep
-    if options.skip == True:
-        counter = 0
-        for pdb in pdbs_full:
 
-            print "Formatting " + str(pdb) + " for input."
-            log.write("Formatting " + str(pdb) + " for input.\n")
-            xray_outname = "prepped_" + str(pdbs[counter][0:(len(pdb[counter])
-                                                             - 4)])
-            filein = open(pdb, 'r')
-            fileout = open(xray_outname, 'w')
-            fileout.write("MODEL        0\n")
-            for line in filein:
-                if line[0:6] == 'ATOM  ':
-                    fileout.write(line)
-            fileout.write("TER   \n")
-            fileout.write("ENDMDL")
-            fileout.close()
-            counter += 1
-    
-    
     # runs xray-prep
-    else:
     
-        print("\n##################\n\nFormatting and seperating..."
+    print("\n##################\n\nFormatting and seperating..."
+          "\n\n##################\n")
+    log.write("\n##################\n\nFormatting and seperating..."
               "\n\n##################\n")
-        log.write("\n##################\n\nFormatting and seperating..."
-                  "\n\n##################\n")
-        counter = 0
-        for pdb in pdbs_full:
-            print("Formatting " + str(pdb) + " for input, and seperating into "
-                  + "model, chain, and altconf files.")
-            log.write("Formatting " + str(
-                pdb) + " for input, and seperating into" +
-                      " model, chain, and altconf files.\n")
-            xray_outname = "prepped_" + str(pdbs[counter][0:(len(pdbs[counter])
-                                                             - 4)])
-            prepped_files_list.extend(xrayprep(pdb, xray_outname))
-            counter += 1
+    counter = 0
+    for pdb in pdbs_full:
+        print("Formatting " + str(pdb) + " for input, and seperating into "
+              + "model, chain, and altconf files.")
+        log.write("Formatting " + str(
+            pdb) + " for input, and seperating into" +
+                  " model, chain, and altconf files.\n")
+        xray_outname = "prepped_" + str(pdbs[counter][0:(len(pdbs[counter])
+                                                         - 4)])
+        prepped_files_list.extend(xrayprep(pdb, xray_outname))
+        counter += 1
 
     # runs backbone_scan
     if options.permissive == False:
@@ -2200,12 +2159,9 @@ elif options.analyze == True and options.prepare == False:
     # first output file, contains info about all the pairs. Used for clustering
     # in the --auto analysis
     pairwise_file = open("pairwise_analysis.tsv", 'w')
-    if options.avg == False:
-        pairwise_file.write(
-            "model_X\tmodel_Y\tcore_percent\trmsd_non_core\trmsd_core\tdis_score\n")
-    else:
-        pairwise_file.write(
-            "model_X\tmodel_Y\tcore_percent\tavg_dev_non_core\tavg_dev_core\tdis_score\n")
+    pairwise_file.write(
+        "model_X\tmodel_Y\tcore_percent\trmsd_non_core\trmsd_core\tdis_score\n")
+
 
     # take each pairwise alignment and realign until dcut satisfied atoms converge
 
@@ -2333,10 +2289,8 @@ elif options.analyze == True and options.prepare == False:
                     all_dist_dict[key].append(distance_dict[key])
 
         # get either the avg or the rmsd of these values
-        if options.avg == False:
-            group_m_rmsd = get_rmsd(all_dist_dict)
-        else:
-            group_m_rmsd = get_mean(all_dist_dict)
+        group_m_rmsd = get_rmsd(all_dist_dict)
+
 
         # try statement here is so that it will except if there is only a group M
         # defined
@@ -2355,10 +2309,8 @@ elif options.analyze == True and options.prepare == False:
                     else:
                         all_dist_dict[key] = list()
                         all_dist_dict[key].append(distance_dict[key])
-            if options.avg == False:
-                group_n_rmsd = get_rmsd(all_dist_dict)
-            else:
-                group_n_rmsd = get_mean(all_dist_dict)
+            group_n_rmsd = get_rmsd(all_dist_dict)
+
 
             # calulate RMS level of inter-ensemble variation for each atom
             # between m and n structures
@@ -2377,10 +2329,7 @@ elif options.analyze == True and options.prepare == False:
                     else:
                         all_dist_dict[key] = list()
                     all_dist_dict[key].append(distance_dict[key])
-            if options.avg == False:
-                inter_rmsd = get_rmsd(all_dist_dict)
-            else:
-                inter_rmsd = get_mean(all_dist_dict)
+            inter_rmsd = get_rmsd(all_dist_dict)
 
             print "Calculating Closest Approach Distance:"
             # now get the closest approach info
@@ -2391,23 +2340,65 @@ elif options.analyze == True and options.prepare == False:
         except:
             pass
 
-        ### combine them all into a well formatted dictionary for ease of access
+        try:
+            # calulate silhouette score
+            print "Calculating Silhoutte Scores for group M and N:"
+            inter_list = [x for x in itertools.product(options.groupm, options.groupn)]
+            m_list = permutations(options.groupm, r = 2)
+            
+            m_dist_dict = {}
+            inter_dist_dict = {}
+            
+                            
+            for x,y in m_list:
+                distance_dict = per_atom_distance(x,y)
+                for key in distance_dict:
+                    if key in m_dist_dict:
+                        pass
+                    else:
+                        m_dist_dict[key] = list()
+                    m_dist_dict[key].append(distance_dict[key])
+            
+            for x,y in inter_list:
+                distance_dict = per_atom_distance(x,y)
+                for key in distance_dict:
+                    if key in inter_dist_dict:
+                        pass
+                    else:
+                        inter_dist_dict[key] = list()
+                    inter_dist_dict[key].append(distance_dict[key])                
+
+            sil = get_sil(m_dist_dict, inter_dist_dict)
+
+
+        except:
+            pass
+        
+        # combine them all into a well formatted dictionary for ease of
+        # access
+
         eeglobal_dict = NestedDict()
+
         for key in group_m_rmsd:
-            # remember the key format is "resid:atomtype"
             resid = int(key.split(":")[0])
             atomid = key.split(":")[1]
-            eeglobal_dict\
-                           ["group_m_rmsd"]\
-                           [resid]\
-                           [atomid]\
-                           = group_m_rmsd[key]
+            try:
+                eeglobal_dict\
+                               ["group_m_rmsd"]\
+                               [resid]\
+                               [atomid]\
+                               = group_m_rmsd[key]
+            except:
+                pass
             try:
                 eeglobal_dict\
                                ["group_n_rmsd"]\
                                [resid]\
                                [atomid]\
                                = group_n_rmsd[key]
+            except:
+                pass
+            try:
                 eeglobal_dict\
                                ["inter_group_rmsd"]\
                                [resid]\
@@ -2425,6 +2416,15 @@ elif options.analyze == True and options.prepare == False:
                                = str(inter_list[closest_approach_index[key]])
             except:
                 pass
+                
+            try:
+                eeglobal_dict\
+                               ["sil"]\
+                               [resid]\
+                               [atomid]\
+                               = sil[key]
+            except:
+                pass                                                            
 
         # sort them for nicer output
         # this ensures that the lists/tables are in a nicer order for humans
@@ -2448,9 +2448,29 @@ elif options.analyze == True and options.prepare == False:
         # so are less complicated
         # they also calculate lodr rather than rmsd, etc
 
-        if options.skiplocal == False:
-            print "Calculating LODR scores for group M:"
-            pairwise_list = combinations(options.groupm, r=2)
+
+        print "Calculating LODR scores for group M:"
+        pairwise_list = combinations(options.groupm, r=2)
+        all_lodr_dict = {}
+        lodr_dict = {}
+
+        for x, y in pairwise_list:
+            for resnum in resid_list:
+                lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                if resnum in all_lodr_dict:
+                    all_lodr_dict[resnum].append(lodr_dict[resnum])
+                else:
+                    all_lodr_dict[resnum] = list()
+                    all_lodr_dict[resnum].append(lodr_dict[resnum])
+
+
+        group_m_lodr = get_rmsd(all_lodr_dict)
+
+        ### calulate LODR among n structures
+        try:
+            pairwise_list = combinations(options.groupn, r=2)
+            print "Calculating LODR scores for group N:"
             all_lodr_dict = {}
             lodr_dict = {}
 
@@ -2464,94 +2484,110 @@ elif options.analyze == True and options.prepare == False:
                         all_lodr_dict[resnum] = list()
                         all_lodr_dict[resnum].append(lodr_dict[resnum])
 
-            if options.avg == False:
-                group_m_lodr = get_rmsd(all_lodr_dict)
-            else:
-                group_m_lodr = get_mean(all_lodr_dict)
+            group_n_lodr = get_rmsd(all_lodr_dict)
 
-            ### calulate LODR among n structures
+            ### calulate LODR between m and n structures
+            print "Calculating Inter Group LODR:"
+
+            inter_list = [
+                x
+                for x in itertools.product(options.groupm, options.groupn)
+            ]
+
+            all_lodr_dict = {}
+            lodr_dict = {}
+            for x, y in inter_list:
+                for resnum in resid_list:
+                    lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                    if resnum in all_lodr_dict:
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        all_lodr_dict[resnum] = list()
+                        all_lodr_dict[resnum].append(lodr_dict[resnum])
+
+            inter_group_lodr = get_rmsd(all_lodr_dict)
+
+            print "Calculating Minimum LODR between M and N at each residue:"
+
+            minimum_lodr_info = get_min(all_lodr_dict)
+            minimum_lodr_index = minimum_lodr_info["index"]
+            minimum_lodr = minimum_lodr_info["min"]
+
+        except:
+            pass
+
+        # calulate LODR_sil
+        try:
+            pairwise_list = permutations(options.groupm, r=2)
+            inter_list = [x
+                          for x in itertools.product(options.groupm, options.groupn)]
+            print "Calculating LODR silhouette scores:"
+            intra_lodr_dict = {}
+            inter_lodr_dict = {}
+            
+            lodr_dict = {}
+            for x, y in pairwise_list:
+                for resnum in resid_list:
+                    lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                    if resnum in intra_lodr_dict:
+                        intra_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        intra_lodr_dict[resnum] = list()
+                        intra_lodr_dict[resnum].append(lodr_dict[resnum])
+            
+            lodr_dict = {}
+            for x, y in inter_list:
+                for resnum in resid_list:
+                    lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                    if resnum in inter_lodr_dict:
+                        inter_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        inter_lodr_dict[resnum] = list()
+                        inter_lodr_dict[resnum].append(lodr_dict[resnum])
+
+            lodr_sil = get_sil(intra_lodr_dict, inter_lodr_dict)
+
+        except:
+            pass
+            
+            
+            
+        # same as eeGlobal
+        eelocal_dict = NestedDict()
+        for resid in resid_list:
             try:
-                pairwise_list = combinations(options.groupn, r=2)
-                print "Calculating LODR scores for group N:"
-                all_lodr_dict = {}
-                lodr_dict = {}
-
-                for x, y in pairwise_list:
-                    for resnum in resid_list:
-                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
-
-                        if resnum in all_lodr_dict:
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            all_lodr_dict[resnum] = list()
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-
-                if options.avg == False:
-                    group_n_lodr = get_rmsd(all_lodr_dict)
-                else:
-                    group_n_lodr = get_mean(all_lodr_dict)
-                ### calulate LODR between m and n structures
-                print "Calculating Inter Group LODR:"
-
-                inter_list = [
-                    x
-                    for x in itertools.product(options.groupm, options.groupn)
-                ]
-
-                all_lodr_dict = {}
-                lodr_dict = {}
-                for x, y in inter_list:
-                    for resnum in resid_list:
-                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
-
-                        if resnum in all_lodr_dict:
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            all_lodr_dict[resnum] = list()
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                if options.avg == False:
-                    inter_group_lodr = get_rmsd(all_lodr_dict)
-                else:
-                    inter_group_lodr = get_mean(all_lodr_dict)
-
-                print "Calculating Minimum LODR between M and N at each residue:"
-
-                minimum_lodr_info = get_min(all_lodr_dict)
-                minimum_lodr_index = minimum_lodr_info["index"]
-                minimum_lodr = minimum_lodr_info["min"]
-
-            except:
-                pass
-
-            # same as eeGlobal
-            eelocal_dict = NestedDict()
-            for resid in resid_list:
+                eelocal_dict\
+                              ["group_m_lodr"]\
+                              [resid]\
+                              = group_m_lodr[resid]
                 try:
                     eelocal_dict\
-                                  ["group_m_lodr"]\
+                                  ["group_n_lodr"]\
                                   [resid]\
-                                  = group_m_lodr[resid]
-                    try:
-                        eelocal_dict\
-                                      ["group_n_lodr"]\
-                                      [resid]\
-                                      = group_n_lodr[resid]
-                        eelocal_dict\
-                                      ["inter_group_lodr"]\
-                                      [resid]\
-                                      = inter_group_lodr[resid]
-                        eelocal_dict\
-                                      ["minimum_lodr"]\
-                                      [resid]\
-                                      = minimum_lodr[resid]
-                        eelocal_dict\
-                                      ["minimum_lodr_index"]\
-                                      [resid]\
-                                      = str(inter_list[minimum_lodr_index[resid]])
-                    except:
-                        pass
+                                  = group_n_lodr[resid]
+                    eelocal_dict\
+                                  ["inter_group_lodr"]\
+                                  [resid]\
+                                  = inter_group_lodr[resid]
+                    eelocal_dict\
+                                  ["minimum_lodr"]\
+                                  [resid]\
+                                  = minimum_lodr[resid]
+                    eelocal_dict\
+                                  ["minimum_lodr_index"]\
+                                  [resid]\
+                                  = str(inter_list[minimum_lodr_index[resid]])
+                    eelocal_dict\
+                                  ["lodr_sil"]\
+                                  [resid]\
+                                  = lodr_sil[resid]
                 except:
                     pass
+            except:
+                pass
 
         # print all the output tables
         print "Organizing output, and saving files:"
@@ -2563,7 +2599,7 @@ elif options.analyze == True and options.prepare == False:
         eeglobal_out.write("res_id" + "\t" + "atom_id" + "\t" + "intra_m_rmsd"
                            + "\t" + "intra_n_rmsd" + "\t" + "inter_group_rmsd"
                            + "\t" + "closest_approach" + "\t" +
-                           "closest_approach_pair" + "\t" + "included_in_core"
+                           "closest_approach_pair" + "\t" + "silhouette" + "\t" + "included_in_core"
                            + "\n")
         for resid in resid_list:
             for atomid in atomid_list:
@@ -2608,6 +2644,12 @@ elif options.analyze == True and options.prepare == False:
                                                    [atomid]
                                                    ) +
                                                "\t" +
+                                               str(eeglobal_dict\
+                                                   ["sil"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
                                                "False" +
                                                "\n"
                                                )
@@ -2646,6 +2688,12 @@ elif options.analyze == True and options.prepare == False:
                                                    [atomid]
                                                    ) +
                                                "\t" +
+                                               str(eeglobal_dict\
+                                                   ["sil"]\
+                                                   [resid]\
+                                                   [atomid]
+                                                   ) +
+                                               "\t" +
                                                "True" +
                                                "\n"
                                                )
@@ -2660,6 +2708,8 @@ elif options.analyze == True and options.prepare == False:
                                                    [resid]\
                                                    [atomid]
                                                    ) +
+                                               "\t" +
+                                               "NA" +
                                                "\t" +
                                                "NA" +
                                                "\t" +
@@ -2691,6 +2741,8 @@ elif options.analyze == True and options.prepare == False:
                                                "\t" +
                                                "NA" +
                                                "\t" +
+                                               "NA" +
+                                               "\t" +
                                                "True" +
                                                "\n"
                                                )
@@ -2700,47 +2752,54 @@ elif options.analyze == True and options.prepare == False:
         print "Output saved in file 'eeGlobal_out.tsv'."
 
         # print out the eeLocal output
-        if options.skiplocal == False:
-            eelocal_out = open("eeLocal_out.tsv", 'w')
-            eelocal_out.write("res_id"
-                              "\t"
-                              "intra_m_rms_lodr"
-                              "\t"
-                              "intra_n_rms_lodr"
-                              "\t"
-                              "inter_group_rms_lodr"
-                              "\t"
-                              "minimum_lodr"
-                              "\t"
-                              "mimimum_lodr_pair"
-                              "\n")
-            for resid in resid_list:
-                if "group_n_lodr" in eelocal_dict:
-                    eelocal_out.write(str(resid) +
-                                      "\t" +
-                                      str(eelocal_dict["group_m_lodr"][resid]) +
-                                      "\t" +
-                                      str(eelocal_dict["group_n_lodr"][resid]) +
-                                      "\t" +
-                                      str(eelocal_dict\
-                                          ["inter_group_lodr"]\
-                                          [resid]
-                                          ) +
-                                      "\t" +
-                                      str(eelocal_dict["minimum_lodr"][resid]) +
-                                      "\t" +
-                                      str(eelocal_dict\
-                                          ["minimum_lodr_index"]\
-                                          [resid]
-                                          ) +
-                                      "\n"
-                                      )
-                else:
-                    eelocal_out.write(str(resid) + "\t" + str(eelocal_dict[
-                        "group_m_lodr"][resid]) + "\t" + "NA" + "\t" + "NA" +
-                                      "\t" + "NA" + "\t" + "NA" + "\n")
-            eelocal_out.close()
-            print "Output saved in file 'eeLocal_out.tsv'."
+
+        eelocal_out = open("eeLocal_out.tsv", 'w')
+        eelocal_out.write("res_id"
+                          "\t"
+                          "intra_m_rms_lodr"
+                          "\t"
+                          "intra_n_rms_lodr"
+                          "\t"
+                          "inter_group_rms_lodr"
+                          "\t"
+                          "minimum_lodr"
+                          "\t"
+                          "mimimum_lodr_pair"
+                          "\t"
+                          "lodr_silhouette"
+                          "\n")
+        for resid in resid_list:
+            if "group_n_lodr" in eelocal_dict:
+                eelocal_out.write(str(resid) +
+                                  "\t" +
+                                  str(eelocal_dict["group_m_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict["group_n_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict\
+                                      ["inter_group_lodr"]\
+                                      [resid]
+                                      ) +
+                                  "\t" +
+                                  str(eelocal_dict["minimum_lodr"][resid]) +
+                                  "\t" +
+                                  str(eelocal_dict\
+                                      ["minimum_lodr_index"]\
+                                      [resid]
+                                      ) +
+                                  "\t" +
+                                  str(eelocal_dict\
+                                      ["lodr_sil"]\
+                                      [resid]
+                                      ) +
+                                  "\n"
+                                  )
+            else:
+                eelocal_out.write(str(resid) + "\t" + str(eelocal_dict[
+                    "group_m_lodr"][resid]) + "\t" + "NA" + "\t" + "NA" +
+                                  "\t" + "NA" + "\t" + "NA" + "\t" + "NA" + "\n")
+        eelocal_out.close()
+        print "Output saved in file 'eeLocal_out.tsv'."
 
         ### PLOTTING ###
         # don't know what this does
@@ -2822,190 +2881,154 @@ elif options.analyze == True and options.prepare == False:
                     backbone_closest[resid] = None
         except:
             pass
-
-        if options.avg == False:
-            title = "eeGLOBAL_dcut=" + str(dcut)
-            plt.figure()
-            plt.plot(backbone_intra_m_rmsd.keys(),
-                     backbone_intra_m_rmsd.values(),
-                     blue,
-                     label="Group M RMSD",
-                     linewidth=1.5)
-            try:
-                plt.plot(backbone_intra_n_rmsd.keys(),
-                         backbone_intra_n_rmsd.values(),
-                         green,
-                         label="Group N RMSD",
-                         linewidth=1.5)
-                plt.plot(backbone_inter_rmsd.keys(),
-                         backbone_inter_rmsd.values(),
-                         purple,
-                         label="Between groups RMSD",
-                         linewidth=1.5)
-                plt.plot(backbone_closest.keys(),
-                         backbone_closest.values(),
-                         red,
-                         label="Closest Approach",
-                         linewidth=1.5)
-            except:
-                pass
-            plt.xlabel("Residue Number")
-            plt.ylabel("Backbone rmsd")
-            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                       loc=3,
-                       ncol=2,
-                       mode="expand",
-                       borderaxespad=0.)
-            ax = plt.gca()
-            ax.xaxis.set_minor_locator(minorLocator)
-            ax.xaxis.set_ticks_position('bottom')
-            ax.yaxis.set_ticks_position('left')
-            fig = plt.gcf()
-            fig.canvas.set_window_title(title)
-            plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-            plt.close()
-            print "eeGlobal plot saved as '" + title + ".png'."
-
-            if options.skiplocal == False:
-
-                print "Plotting eeLocal:"
-                ## eeLocal plot
-
-                title = "eeLocal"
-                plt.figure()
-                plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                         eelocal_dict["group_m_lodr"].values(),
-                         blue,
-                         label="Group M RMS-LODR",
-                         linewidth=1.5)
+        
+        try:
+            backbone_sil = {}
+            for resid in range(min(resid_list), (max(resid_list) + 1)):
+                rmsds = []
+                for atomid in atomid_list:
+                    if atomid == "N" or \
+                               atomid == "CA" or \
+                               atomid == "C" or \
+                               atomid == "O":
+                        rmsds.append(eeglobal_dict\
+                                     ["sil"]\
+                                     [resid]\
+                                     [atomid]
+                                     )
                 try:
-                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                             eelocal_dict["group_n_lodr"].values(),
-                             green,
-                             label="Group N RMS-LODR",
-                             linewidth=1.5)
-                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                             eelocal_dict["inter_group_lodr"].values(),
-                             purple,
-                             label="Inter-group RMS-LODR",
-                             linewidth=1.5)
-                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                             eelocal_dict["minimum_lodr"].values(),
-                             red,
-                             label="Minimum LODR",
-                             linewidth=1.5)
+                    backbone_sil[resid] = np.mean(rmsds)
                 except:
-                    pass
-                plt.xlabel("Residue Number")
-                plt.ylabel("RMS-LODR")
-                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                           loc=3,
-                           ncol=2,
-                           mode="expand",
-                           borderaxespad=0.)
-                ax = plt.gca()
-                ax.xaxis.set_minor_locator(minorLocator)
-                ax.xaxis.set_ticks_position('bottom')
-                ax.yaxis.set_ticks_position('left')
-                fig = plt.gcf()
-                fig.canvas.set_window_title(title)
-                plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-                plt.close()
-                print "eeLocal plot saved as '" + title + ".png'."
+                    backbone_sil[resid] = None
+        except:
+            pass
 
-        # calculated using averages here, so plots should reflect that
-        else:
-
-            title = "eeGLOBAL_dcut=" + str(dcut)
-            plt.figure()
-            plt.plot(backbone_intra_m_rmsd.keys(),
-                     backbone_intra_m_rmsd.values(),
-                     blue,
-                     label="Group M Mean",
+        title = "eeGLOBAL_dcut=" + str(dcut)
+        plt.figure()
+        plt.plot(backbone_intra_m_rmsd.keys(),
+                 backbone_intra_m_rmsd.values(),
+                 blue,
+                 label="Group M RMSD",
+                 linewidth=1.5)
+        try:
+            plt.plot(backbone_intra_n_rmsd.keys(),
+                     backbone_intra_n_rmsd.values(),
+                     green,
+                     label="Group N RMSD",
                      linewidth=1.5)
-            try:
-                plt.plot(backbone_intra_n_rmsd.keys(),
-                         backbone_intra_n_rmsd.values(),
-                         green,
-                         label="Group N Mean",
-                         linewidth=1.5)
-                plt.plot(backbone_inter_rmsd.keys(),
-                         backbone_inter_rmsd.values(),
-                         purple,
-                         label="Between groups Mean",
-                         linewidth=1.5)
-                plt.plot(backbone_closest.keys(),
-                         backbone_closest.values(),
-                         red,
-                         label="Closest Approach",
-                         linewidth=1.5)
-            except:
-                pass
-            #plt.title(title)
-            plt.xlabel("Residue Number")
-            plt.ylabel("Backbone rmsd")
-            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                       loc=3,
-                       ncol=2,
-                       mode="expand",
-                       borderaxespad=0.)
-            #plt.subplots_adjust(right=.78)
-            ax = plt.gca()
-            ax.xaxis.set_minor_locator(minorLocator)
-            ax.xaxis.set_ticks_position('bottom')
-            ax.yaxis.set_ticks_position('left')
-            fig = plt.gcf()
-            fig.canvas.set_window_title(title)
-            plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-            plt.close()
-            print "eeGlobal plot saved as '" + title + ".png'."
+            plt.plot(backbone_inter_rmsd.keys(),
+                     backbone_inter_rmsd.values(),
+                     purple,
+                     label="Between groups RMSD",
+                     linewidth=1.5)
+            plt.plot(backbone_closest.keys(),
+                     backbone_closest.values(),
+                     red,
+                     label="Closest Approach",
+                     linewidth=1.5)
+        except:
+            pass
+        plt.xlabel("Residue Number")
+        plt.ylabel("Backbone rmsd")
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                   loc=3,
+                   ncol=2,
+                   mode="expand",
+                   borderaxespad=0.)
+        ax = plt.gca()
+        ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        fig = plt.gcf()
+        fig.canvas.set_window_title(title)
+        plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+        plt.close()
+        print "eeGlobal plot saved as '" + title + ".png'."
 
-            if options.skiplocal == False:
 
-                print "Plotting eeLocal:"
-                ## eeLocal plot
+        print "Plotting eeLocal:"
+        ## eeLocal plot
 
-                title = "eeLocal"
-                plt.figure()
-                plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                         eelocal_dict["group_m_lodr"].values(),
-                         blue,
-                         label="Group M Mean-LODR",
-                         linewidth=1.5)
-                try:
-                    plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                             eelocal_dict["group_n_lodr"].values(),
-                             green,
-                             label="Group N Mean-LODR",
-                             linewidth=1.5)
-                    plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                             eelocal_dict["inter_group_lodr"].values(),
-                             purple,
-                             label="Inter-group Mean-LODR",
-                             linewidth=1.5)
-                    plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                             eelocal_dict["minimum_lodr"].values(),
-                             red,
-                             label="Minimum LODR",
-                             linewidth=1.5)
-                except:
-                    pass
-                plt.xlabel("Residue Number")
-                plt.ylabel("RMS-LODR")
-                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                           loc=3,
-                           ncol=2,
-                           mode="expand",
-                           borderaxespad=0.)
-                ax = plt.gca()
-                ax.xaxis.set_minor_locator(minorLocator)
-                ax.xaxis.set_ticks_position('bottom')
-                ax.yaxis.set_ticks_position('left')
-                fig = plt.gcf()
-                fig.canvas.set_window_title(title)
-                plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-                plt.close()
-                print "eeLocal plot saved as '" + title + ".png'."
+        title = "eeLocal"
+        plt.figure()
+        plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                 eelocal_dict["group_m_lodr"].values(),
+                 blue,
+                 label="Group M RMS-LODR",
+                 linewidth=1.5)
+        try:
+            plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                     eelocal_dict["group_n_lodr"].values(),
+                     green,
+                     label="Group N RMS-LODR",
+                     linewidth=1.5)
+            plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                     eelocal_dict["inter_group_lodr"].values(),
+                     purple,
+                     label="Inter-group RMS-LODR",
+                     linewidth=1.5)
+            plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                     eelocal_dict["minimum_lodr"].values(),
+                     red,
+                     label="Minimum LODR",
+                     linewidth=1.5)
+        except:
+            pass
+        plt.xlabel("Residue Number")
+        plt.ylabel("RMS-LODR")
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                   loc=3,
+                   ncol=2,
+                   mode="expand",
+                   borderaxespad=0.)
+        ax = plt.gca()
+        ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        fig = plt.gcf()
+        fig.canvas.set_window_title(title)
+        plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+        plt.close()
+        print "eeLocal plot saved as '" + title + ".png'."
+
+
+        #### Silhouette plot!
+        title = "Silhouette Scores"
+        plt.figure()
+        try:
+            plt.plot(backbone_sil.keys(),
+                     backbone_sil.values(),
+                     blue,
+                     label="Global Silhouette Scores",
+                     linewidth=1.5)
+        except:
+            pass   
+        try:
+            plt.plot(eelocal_dict["lodr_sil"].keys(),
+                     eelocal_dict["lodr_sil"].values(),
+                     green,
+                     label="LODR Silhouette Scores",
+                     linewidth=1.5)
+        except:
+            pass  
+                                       
+        plt.xlabel("Residue Number")
+        plt.ylabel("Backbone Silhouette Score")
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                   loc=3,
+                   ncol=2,
+                   mode="expand",
+                   borderaxespad=0.)
+        ax = plt.gca()
+        ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        plt.ylim([-1,1])
+        fig = plt.gcf()
+        fig.canvas.set_window_title(title)
+        plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+        plt.close()
+        print "Silhouette Score plot saved as '" + title + ".png'."
 
         # this will set the b-factors in the final overlay to be the
         # value of the inter_group b factor. Can be nice for visualizing
@@ -3310,11 +3333,7 @@ elif options.analyze == True and options.prepare == False:
                         else:
                             all_dist_dict[key] = list()
                             all_dist_dict[key].append(distance_dict[key])
-
-                if options.avg == False:
-                    group_m_rmsd = get_rmsd(all_dist_dict)
-                else:
-                    group_m_rmsd = get_mean(all_dist_dict)
+                group_m_rmsd = get_rmsd(all_dist_dict)
             except:
                 pass
 
@@ -3333,10 +3352,7 @@ elif options.analyze == True and options.prepare == False:
                         else:
                             all_dist_dict[key] = list()
                             all_dist_dict[key].append(distance_dict[key])
-                if options.avg == False:
-                    group_n_rmsd = get_rmsd(all_dist_dict)
-                else:
-                    group_n_rmsd = get_mean(all_dist_dict)
+                group_n_rmsd = get_rmsd(all_dist_dict)
             except:
                 pass
             try:
@@ -3353,10 +3369,7 @@ elif options.analyze == True and options.prepare == False:
                         else:
                             all_dist_dict[key] = list()
                         all_dist_dict[key].append(distance_dict[key])
-                if options.avg == False:
-                    inter_rmsd = get_rmsd(all_dist_dict)
-                else:
-                    inter_rmsd = get_mean(all_dist_dict)
+                inter_rmsd = get_rmsd(all_dist_dict)
                 print "Calculating Closest Approach Distance:"
 
                 closest_approach_info = get_min(all_dist_dict)
@@ -3366,6 +3379,45 @@ elif options.analyze == True and options.prepare == False:
             except:
                 pass
 
+
+            try:
+                # calulate silhouette score
+                print "Calculating Silhoutte Scores for group M and N:"
+                inter_list = [x for x in itertools.product(group_m, group_n)]
+                m_list = permutations(group_m, r = 2)
+                
+                m_dist_dict = {}
+                inter_dist_dict = {}
+                
+                                
+                for x,y in m_list:
+                    distance_dict = per_atom_distance(x,y)
+                    for key in distance_dict:
+                        if key in m_dist_dict:
+                            pass
+                        else:
+                            m_dist_dict[key] = list()
+                        m_dist_dict[key].append(distance_dict[key])
+                
+                for x,y in inter_list:
+                    distance_dict = per_atom_distance(x,y)
+                    for key in distance_dict:
+                        if key in inter_dist_dict:
+                            pass
+                        else:
+                            inter_dist_dict[key] = list()
+                        inter_dist_dict[key].append(distance_dict[key])                
+
+                sil = get_sil(m_dist_dict, inter_dist_dict)
+
+
+            except:
+                pass
+
+            
+            
+            
+            
             # combine them all into a well formatted dictionary for ease of
             # access
 
@@ -3408,6 +3460,16 @@ elif options.analyze == True and options.prepare == False:
                                    = str(inter_list[closest_approach_index[key]])
                 except:
                     pass
+                    
+                try:
+                    eeglobal_dict\
+                                   ["sil"]\
+                                   [resid]\
+                                   [atomid]\
+                                   = sil[key]
+                except:
+                    pass                    
+                    
 
             # sort them for nicer output
             resid_list = []
@@ -3424,121 +3486,156 @@ elif options.analyze == True and options.prepare == False:
             atomid_list = list(sorted(atomid_list))
 
             # eeLocal calculations
-            if options.skiplocal == False:
 
+            try:
+                print "Calculating LODR scores for group M:"
+                pairwise_list = combinations(group_m, r=2)
+                all_lodr_dict = {}
+                lodr_dict = {}
+
+                for x, y in pairwise_list:
+                    for resnum in resid_list:
+                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                group_m_lodr = get_rmsd(all_lodr_dict)
+            except:
+                pass
+            # calulate LODR among n structures
+            try:
+                pairwise_list = combinations(group_n, r=2)
+                print "Calculating LODR scores for group N:"
+                all_lodr_dict = {}
+                lodr_dict = {}
+
+                for x, y in pairwise_list:
+                    for resnum in resid_list:
+                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+
+                group_n_lodr = get_rmsd(all_lodr_dict)
+            except:
+                pass
+            try:
+                # calulate LODR between m and n structures
+                print "Calculating Inter Group LODR:"
+                inter_list = [x
+                              for x in itertools.product(group_m, group_n)]
+
+                all_lodr_dict = {}
+                lodr_dict = {}
+                for x, y in inter_list:
+                    for resnum in resid_list:
+                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                        if resnum in all_lodr_dict:
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            all_lodr_dict[resnum] = list()
+                            all_lodr_dict[resnum].append(lodr_dict[resnum])
+                inter_group_lodr = get_rmsd(all_lodr_dict)
+
+                print("Calculating Minimum LODR between " +
+                      "M and N at each residue:")
+
+                minimum_lodr_info = get_min(all_lodr_dict)
+                minimum_lodr_index = minimum_lodr_info["index"]
+                minimum_lodr = minimum_lodr_info["min"]
+
+            except:
+                pass
+
+            # calulate LODR_sil
+            try:
+                pairwise_list = permutations(group_m, r=2)
+                inter_list = [x
+                              for x in itertools.product(group_m, group_n)]
+                print "Calculating LODR silhouette scores:"
+                intra_lodr_dict = {}
+                inter_lodr_dict = {}
+                
+                lodr_dict = {}
+                for x, y in pairwise_list:
+                    for resnum in resid_list:
+                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                        if resnum in intra_lodr_dict:
+                            intra_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            intra_lodr_dict[resnum] = list()
+                            intra_lodr_dict[resnum].append(lodr_dict[resnum])
+                
+                lodr_dict = {}
+                for x, y in inter_list:
+                    for resnum in resid_list:
+                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                        if resnum in inter_lodr_dict:
+                            inter_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            inter_lodr_dict[resnum] = list()
+                            inter_lodr_dict[resnum].append(lodr_dict[resnum])
+
+                lodr_sil = get_sil(intra_lodr_dict, inter_lodr_dict)
+
+            except:
+                pass
+                
+                
+            eelocal_dict = NestedDict()
+            for resid in resid_list:
                 try:
-                    print "Calculating LODR scores for group M:"
-                    pairwise_list = combinations(group_m, r=2)
-                    all_lodr_dict = {}
-                    lodr_dict = {}
-
-                    for x, y in pairwise_list:
-                        for resnum in resid_list:
-                            lodr_dict[resnum] = eelocal(x, y, int(resnum))
-
-                            if resnum in all_lodr_dict:
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                            else:
-                                all_lodr_dict[resnum] = list()
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-
-                    if options.avg == False:
-                        group_m_lodr = get_rmsd(all_lodr_dict)
-                    else:
-                        group_m_lodr = get_mean(all_lodr_dict)
-                except:
-                    pass
-                # calulate LODR among n structures
-                try:
-                    pairwise_list = combinations(group_n, r=2)
-                    print "Calculating LODR scores for group N:"
-                    all_lodr_dict = {}
-                    lodr_dict = {}
-
-                    for x, y in pairwise_list:
-                        for resnum in resid_list:
-                            lodr_dict[resnum] = eelocal(x, y, int(resnum))
-
-                            if resnum in all_lodr_dict:
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                            else:
-                                all_lodr_dict[resnum] = list()
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-
-                    if options.avg == False:
-                        group_n_lodr = get_rmsd(all_lodr_dict)
-                    else:
-                        group_n_lodr = get_mean(all_lodr_dict)
-                except:
-                    pass
-                try:
-                    # calulate LODR between m and n structures
-                    print "Calculating Inter Group LODR:"
-                    inter_list = [x
-                                  for x in itertools.product(group_m, group_n)]
-
-                    all_lodr_dict = {}
-                    lodr_dict = {}
-                    for x, y in inter_list:
-                        for resnum in resid_list:
-                            lodr_dict[resnum] = eelocal(x, y, int(resnum))
-
-                            if resnum in all_lodr_dict:
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                            else:
-                                all_lodr_dict[resnum] = list()
-                                all_lodr_dict[resnum].append(lodr_dict[resnum])
-                    if options.avg == False:
-                        inter_group_lodr = get_rmsd(all_lodr_dict)
-                    else:
-                        inter_group_lodr = get_mean(all_lodr_dict)
-
-                    print("Calculating Minimum LODR between " +
-                          "M and N at each residue:")
-
-                    minimum_lodr_info = get_min(all_lodr_dict)
-                    minimum_lodr_index = minimum_lodr_info["index"]
-                    minimum_lodr = minimum_lodr_info["min"]
-
-                except:
-                    pass
-
-                eelocal_dict = NestedDict()
-                for resid in resid_list:
                     try:
-                        try:
-                            eelocal_dict\
-                                          ["group_m_lodr"]\
-                                          [resid]\
-                                          = group_m_lodr[resid]
-                        except:
-                            pass
-                        try:
-                            eelocal_dict\
-                                          ["group_n_lodr"]\
-                                          [resid]\
-                                          = group_n_lodr[resid]
-                        except:
-                            pass
-                        try:
-                            eelocal_dict\
-                                          ["inter_group_lodr"]\
-                                          [resid]\
-                                          = inter_group_lodr[resid]
-                            eelocal_dict\
-                                          ["minimum_lodr"]\
-                                          [resid]\
-                                          = minimum_lodr[resid]
-                            eelocal_dict\
-                                          ["minimum_lodr_index"]\
-                                          [resid]\
-                                          = str(
-                                              inter_list[minimum_lodr_index[resid]]
-                                              )
-                        except:
-                            pass
+                        eelocal_dict\
+                                      ["group_m_lodr"]\
+                                      [resid]\
+                                      = group_m_lodr[resid]
                     except:
                         pass
+                    try:
+                        eelocal_dict\
+                                      ["group_n_lodr"]\
+                                      [resid]\
+                                      = group_n_lodr[resid]
+                    except:
+                        pass
+                    
+                    try:
+                        eelocal_dict\
+                                      ["lodr_sil"]\
+                                      [resid]\
+                                      = lodr_sil[resid]
+                    except:
+                        pass
+                        
+                    try:
+                        eelocal_dict\
+                                      ["inter_group_lodr"]\
+                                      [resid]\
+                                      = inter_group_lodr[resid]
+                        eelocal_dict\
+                                      ["minimum_lodr"]\
+                                      [resid]\
+                                      = minimum_lodr[resid]
+                        eelocal_dict\
+                                      ["minimum_lodr_index"]\
+                                      [resid]\
+                                      = str(
+                                          inter_list[minimum_lodr_index[resid]]
+                                          )
+                    except:
+                        pass
+                except:
+                    pass
 
             print "Organizing output, and saving files:"
 
@@ -3558,8 +3655,11 @@ elif options.analyze == True and options.prepare == False:
                                "\t"
                                "closest_approach_pair"
                                "\t"
+                               "silhouette"
+                               "\t"
                                "included_in_core"
                                "\n")
+            
             for resid in resid_list:
                 for atomid in atomid_list:
                     if atomid in eeglobal_dict["group_m_rmsd"][resid]:
@@ -3599,6 +3699,12 @@ elif options.analyze == True and options.prepare == False:
                                                        [atomid]
                                                        ) +
                                                    "\t" +
+                                                   str(eeglobal_dict\
+                                                       ["sil"]\
+                                                       [resid]\
+                                                       [atomid]
+                                                       ) +
+                                                   "\t" +
                                                    "False" +
                                                    "\n"
                                                    )
@@ -3637,6 +3743,12 @@ elif options.analyze == True and options.prepare == False:
                                                        [atomid]
                                                        ) +
                                                    "\t" +
+                                                   str(eeglobal_dict\
+                                                       ["sil"]\
+                                                       [resid]\
+                                                       [atomid]
+                                                       ) +
+                                                   "\t" +
                                                    "True" +
                                                    "\n"
                                                    )
@@ -3651,6 +3763,8 @@ elif options.analyze == True and options.prepare == False:
                                                        [resid]\
                                                        [atomid]
                                                        ) +
+                                                   "\t" +
+                                                   "NA" +
                                                    "\t" +
                                                    "NA" +
                                                    "\t" +
@@ -3682,6 +3796,8 @@ elif options.analyze == True and options.prepare == False:
                                                    "\t" +
                                                    "NA" +
                                                    "\t" +
+                                                   "NA" +
+                                                   "\t" +
                                                    "True" +
                                                    "\n"
                                                    )
@@ -3690,69 +3806,77 @@ elif options.analyze == True and options.prepare == False:
             eeglobal_out.close()
             print "Output saved in file 'eeGlobal_out" + outputname + ".tsv'."
 
-            if options.skiplocal == False:
-                eelocal_out = open("eeLocal_out" + outputname + ".tsv", 'w')
-                eelocal_out.write("res_id"
-                                  "\t"
-                                  "intra_m_rms_lodr"
-                                  "\t"
-                                  "intra_n_rms_lodr"
-                                  "\t"
-                                  "inter_group_rms_lodr"
-                                  "\t"
-                                  "minimum_lodr"
-                                  "\t"
-                                  "mimimum_lodr_pair"
-                                  "\n")
+            eelocal_out = open("eeLocal_out" + outputname + ".tsv", 'w')
+            eelocal_out.write("res_id"
+                              "\t"
+                              "intra_m_rms_lodr"
+                              "\t"
+                              "intra_n_rms_lodr"
+                              "\t"
+                              "inter_group_rms_lodr"
+                              "\t"
+                              "minimum_lodr"
+                              "\t"
+                              "mimimum_lodr_pair"
+                              "\t"
+                              "lodr_silhouette"
+                              "\n")
 
-                for resid in resid_list:
-                    if "group_n_lodr" in eelocal_dict:
-                        eelocal_out.write(str(resid) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["group_m_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["group_n_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["inter_group_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["minimum_lodr"]\
-                                              [resid]
-                                              ) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["minimum_lodr_index"]\
-                                              [resid]
-                                              ) +
-                                          "\n"
-                                          )
-                    else:
-                        eelocal_out.write(str(resid) +
-                                          "\t" +
-                                          str(eelocal_dict\
-                                              ["group_m_lodr"]\
-                                              [resid]) +
-                                          "\t" +
-                                          "NA" +
-                                          "\t" +
-                                          "NA" +
-                                          "\t" +
-                                          "NA" +
-                                          "\t" +
-                                          "NA" +
-                                          "\n"
-                                          )
-                eelocal_out.close()
-                print "Output saved in file 'eeLocal_out" + outputname + ".tsv'."
+            for resid in resid_list:
+                if "group_n_lodr" in eelocal_dict:
+                    eelocal_out.write(str(resid) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_m_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_n_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["inter_group_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["minimum_lodr"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["minimum_lodr_index"]\
+                                          [resid]
+                                          ) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["lodr_sil"]\
+                                          [resid]
+                                          ) +
+                                      "\n"
+                                      )
+                else:
+                    eelocal_out.write(str(resid) +
+                                      "\t" +
+                                      str(eelocal_dict\
+                                          ["group_m_lodr"]\
+                                          [resid]) +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\t" +
+                                      "NA" +
+                                      "\n"
+                                      )
+            eelocal_out.close()
+            print "Output saved in file 'eeLocal_out" + outputname + ".tsv'."
 
             ### PLOTTING ###
 
@@ -3802,6 +3926,28 @@ elif options.analyze == True and options.prepare == False:
                         backbone_intra_n_rmsd[resid] = None
             except:
                 pass
+            
+            try:
+                backbone_sil = {}
+                for resid in range(min(resid_list), (max(resid_list) + 1)):
+                    rmsds = []
+                    for atomid in atomid_list:
+                        if atomid == "N" or \
+                                   atomid == "CA" or \
+                                   atomid == "C" or \
+                                   atomid == "O":
+                            rmsds.append(eeglobal_dict\
+                                         ["sil"]\
+                                         [resid]\
+                                         [atomid]
+                                         )
+                    try:
+                        backbone_sil[resid] = np.mean(rmsds)
+                    except:
+                        backbone_sil[resid] = None
+            except:
+                pass
+                
             try:
                 backbone_inter_rmsd = {}
                 for resid in range(min(resid_list), (max(resid_list) + 1)):
@@ -3840,210 +3986,148 @@ elif options.analyze == True and options.prepare == False:
             except:
                 pass
 
-            if options.avg == False:
-                title = "eeGLOBAL_dcut=" + str(dcut) + outputname
-                plt.figure()
-                try:
-                    plt.plot(backbone_intra_m_rmsd.keys(),
-                             backbone_intra_m_rmsd.values(),
-                             blue,
-                             label="Group M RMSD",
-                             linewidth=1.5)
-                except:
-                    pass
-                try:
-                    plt.plot(backbone_intra_n_rmsd.keys(),
-                             backbone_intra_n_rmsd.values(),
-                             green,
-                             label="Group N RMSD",
-                             linewidth=1.5)
-                except:
-                    pass
-                try:
-                    plt.plot(backbone_inter_rmsd.keys(),
-                             backbone_inter_rmsd.values(),
-                             purple,
-                             label="Between groups RMSD",
-                             linewidth=1.5)
-                    plt.plot(backbone_closest.keys(),
-                             backbone_closest.values(),
-                             red,
-                             label="Closest Approach",
-                             linewidth=1.5)
-                except:
-                    pass
-                plt.xlabel("Residue Number")
-                plt.ylabel("Backbone rmsd")
-                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                           loc=3,
-                           ncol=2,
-                           mode="expand",
-                           borderaxespad=0.)
-                ax = plt.gca()
-                ax.xaxis.set_minor_locator(minorLocator)
-                ax.xaxis.set_ticks_position('bottom')
-                ax.yaxis.set_ticks_position('left')
-                fig = plt.gcf()
-                fig.canvas.set_window_title(title)
-                plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-                plt.close()
-                print "eeGlobal plot saved as '" + title + ".png'."
+            title = "eeGLOBAL_dcut=" + str(dcut) + outputname
+            plt.figure()
+            try:
+                plt.plot(backbone_intra_m_rmsd.keys(),
+                         backbone_intra_m_rmsd.values(),
+                         blue,
+                         label="Group M RMSD",
+                         linewidth=1.5)
+            except:
+                pass
+            try:
+                plt.plot(backbone_intra_n_rmsd.keys(),
+                         backbone_intra_n_rmsd.values(),
+                         green,
+                         label="Group N RMSD",
+                         linewidth=1.5)
+            except:
+                pass
 
-                if options.skiplocal == False:
+            try:
+                plt.plot(backbone_inter_rmsd.keys(),
+                         backbone_inter_rmsd.values(),
+                         purple,
+                         label="Between groups RMSD",
+                         linewidth=1.5)
+                plt.plot(backbone_closest.keys(),
+                         backbone_closest.values(),
+                         red,
+                         label="Closest Approach",
+                         linewidth=1.5)
+            except:
+                pass
+            
+            plt.xlabel("Residue Number")
+            plt.ylabel("Backbone rmsd")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                       loc=3,
+                       ncol=2,
+                       mode="expand",
+                       borderaxespad=0.)
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+            plt.close()
+            print "eeGlobal plot saved as '" + title + ".png'."
+    
 
-                    print "Plotting eeLocal:"
-                    ## eeLocal plot
+            print "Plotting eeLocal:"
+            ## eeLocal plot
 
-                    title = "eeLocal" + outputname
-                    plt.figure()
-                    try:
-                        plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                                 eelocal_dict["group_m_lodr"].values(),
-                                 blue,
-                                 label="Group M RMS-LODR",
-                                 linewidth=1.5)
-                    except:
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                                 eelocal_dict["group_n_lodr"].values(),
-                                 green,
-                                 label="Group N RMS-LODR",
-                                 linewidth=1.5)
-                    except:
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                                 eelocal_dict["inter_group_lodr"].values(),
-                                 purple,
-                                 label="Inter-group RMS-LODR",
-                                 linewidth=1.5)
-                        plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                                 eelocal_dict["minimum_lodr"].values(),
-                                 red,
-                                 label="Minimum LODR",
-                                 linewidth=1.5)
-                    except:
-                        pass
-                    plt.xlabel("Residue Number")
-                    plt.ylabel("RMS-LODR")
-                    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                               loc=3,
-                               ncol=2,
-                               mode="expand",
-                               borderaxespad=0.)
-                    ax = plt.gca()
-                    ax.xaxis.set_minor_locator(minorLocator)
-                    ax.xaxis.set_ticks_position('bottom')
-                    ax.yaxis.set_ticks_position('left')
-                    fig = plt.gcf()
-                    fig.canvas.set_window_title(title)
-                    plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-                    plt.close()
-                    print "eeLocal plot saved as '" + title + ".png'."
-
-            else:
-
-                title = "eeGLOBAL_dcut=" + str(dcut) + outputname
-                plt.figure()
-                try:
-                    plt.plot(backbone_intra_m_rmsd.keys(),
-                             backbone_intra_m_rmsd.values(),
-                             blue,
-                             label="Group M Mean",
-                             linewidth=1.5)
-                except:
-                    pass
-                try:
-                    plt.plot(backbone_intra_n_rmsd.keys(),
-                             backbone_intra_n_rmsd.values(),
-                             green,
-                             label="Group N Mean",
-                             linewidth=1.5)
-                except:
-                    pass
-                try:
-                    plt.plot(backbone_inter_rmsd.keys(),
-                             backbone_inter_rmsd.values(),
-                             purple,
-                             label="Between groups Mean",
-                             linewidth=1.5)
-                    plt.plot(backbone_closest.keys(),
-                             backbone_closest.values(),
-                             red,
-                             label="Closest Approach",
-                             linewidth=1.5)
-                except:
-                    pass
-                plt.xlabel("Residue Number")
-                plt.ylabel("Backbone rmsd")
-                plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                           loc=3,
-                           ncol=2,
-                           mode="expand",
-                           borderaxespad=0.)
-                ax = plt.gca()
-                ax.xaxis.set_minor_locator(minorLocator)
-                ax.xaxis.set_ticks_position('bottom')
-                ax.yaxis.set_ticks_position('left')
-                fig = plt.gcf()
-                fig.canvas.set_window_title(title)
-                plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-                plt.close()
-                print "eeGlobal plot saved as '" + title + ".png'."
-
-                if options.skiplocal == False:
-
-                    print "Plotting eeLocal:"
-                    ## eeLocal plot
-
-                    title = "eeLocal" + outputname
-                    plt.figure()
-                    try:
-                        plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                                 eelocal_dict["group_m_lodr"].values(),
-                                 blue,
-                                 label="Group M Mean-LODR",
-                                 linewidth=1.5)
-                    except:
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                                 eelocal_dict["group_n_lodr"].values(),
-                                 green,
-                                 label="Group N Mean-LODR",
-                                 linewidth=1.5)
-                    except:
-                        pass
-                    try:
-                        plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                                 eelocal_dict["inter_group_lodr"].values(),
-                                 purple,
-                                 label="Inter-group Mean-LODR",
-                                 linewidth=1.5)
-                        plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                                 eelocal_dict["minimum_lodr"].values(),
-                                 red,
-                                 label="Minimum LODR",
-                                 linewidth=1.5)
-                    except:
-                        pass
-                    plt.xlabel("Residue Number")
-                    plt.ylabel("RMS-LODR")
-                    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
-                               loc=3,
-                               ncol=2,
-                               mode="expand",
-                               borderaxespad=0.)
-                    ax = plt.gca()
-                    ax.xaxis.set_minor_locator(minorLocator)
-                    ax.xaxis.set_ticks_position('bottom')
-                    ax.yaxis.set_ticks_position('left')
-                    fig = plt.gcf()
-                    fig.canvas.set_window_title(title)
-                    plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
-                    plt.close()
-                    print "eeLocal plot saved as '" + title + ".png'."
+            title = "eeLocal" + outputname
+            plt.figure()
+            try:
+                plt.plot(eelocal_dict["group_m_lodr"].keys(),
+                         eelocal_dict["group_m_lodr"].values(),
+                         blue,
+                         label="Group M RMS-LODR",
+                         linewidth=1.5)
+            except:
+                pass
+            try:
+                plt.plot(eelocal_dict["group_n_lodr"].keys(),
+                         eelocal_dict["group_n_lodr"].values(),
+                         green,
+                         label="Group N RMS-LODR",
+                         linewidth=1.5)
+            except:
+                pass
+            try:
+                plt.plot(eelocal_dict["inter_group_lodr"].keys(),
+                         eelocal_dict["inter_group_lodr"].values(),
+                         purple,
+                         label="Inter-group RMS-LODR",
+                         linewidth=1.5)
+                plt.plot(eelocal_dict["minimum_lodr"].keys(),
+                         eelocal_dict["minimum_lodr"].values(),
+                         red,
+                         label="Minimum LODR",
+                         linewidth=1.5)
+            except:
+                pass
+            plt.xlabel("Residue Number")
+            plt.ylabel("RMS-LODR")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                       loc=3,
+                       ncol=2,
+                       mode="expand",
+                       borderaxespad=0.)
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+            plt.close()
+            print "eeLocal plot saved as '" + title + ".png'."
+            
+            
+            
+            
+            #### Silhouette plot!
+            title = "SILHOUETTE_dcut=" + str(dcut) + outputname
+            plt.figure()
+            try:
+                plt.plot(backbone_sil.keys(),
+                         backbone_sil.values(),
+                         blue,
+                         label="Global Silhouette Scores",
+                         linewidth=1.5)
+            except:
+                pass   
+            try:
+                plt.plot(eelocal_dict["lodr_sil"].keys(),
+                         eelocal_dict["lodr_sil"].values(),
+                         green,
+                         label="LODR Silhouette Scores",
+                         linewidth=1.5)
+            except:
+                pass  
+                                           
+            plt.xlabel("Residue Number")
+            plt.ylabel("Backbone Silhouette Score")
+            plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
+                       loc=3,
+                       ncol=2,
+                       mode="expand",
+                       borderaxespad=0.)
+            ax = plt.gca()
+            ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_ticks_position('bottom')
+            ax.yaxis.set_ticks_position('left')
+            plt.ylim([-1,1])
+            fig = plt.gcf()
+            fig.canvas.set_window_title(title)
+            plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+            plt.close()
+            print "Silhouette Score plot saved as '" + title + ".png'."
 
         # now need to sort the groups legend so that it is human readable
         groups_legend = open("groups_legend.tsv", "r")
