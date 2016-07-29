@@ -2355,7 +2355,7 @@ elif options.analyze == True and options.prepare == False:
 
         try:
             # calulate silhouette score
-            print "Calculating Silhoutte Scores for group M and N:"
+            print "Calculating Global Silhoutte Scores:"
             inter_list = [x for x in itertools.product(options.groupm, options.groupn)]
             m_list = permutations(options.groupm, r = 2)
             n_list = permutations(options.groupn, r = 2)
@@ -3420,7 +3420,7 @@ elif options.analyze == True and options.prepare == False:
 
             try:
                 # calulate silhouette score
-                print "Calculating Silhoutte Scores for group M and N:"
+                print "Calculating Global Silhoutte Scores:"
                 inter_list = [x for x in itertools.product(group_m, group_n)]
                 m_list = permutations(group_m, r = 2)
                 n_list = permutations(group_n, r = 2)

@@ -89,18 +89,31 @@ class options:
 ################################################################################
 
 # function to get silhouette-like scores
-def get_sil(intra_dist_dict, inter_dist_dict):
+def get_sil(intram_dist_dict, intran_dist_dict, inter_dist_dict):
     
     sil_dict = {}
     
     
-    for atom in intra_dist_dict:
+    for atom in intram_dist_dict:
         try:
-            ai = np.mean(intra_dist_dict[atom])
+            
+            # get group M sil
+            ai = np.mean(intram_dist_dict[atom])
             bi = np.mean(inter_dist_dict[atom])
             
-            sili = (bi - ai) / np.max([bi, ai])
+            sili_m = (bi - ai) / np.max([bi, ai])
+            
+            # get group N sil
+            ai = np.mean(intran_dist_dict[atom])
+            bi = np.mean(inter_dist_dict[atom])
+            
+            sili_n = (bi - ai) / np.max([bi, ai])
+            
+            # get mean
+            sili = (sili_m + sili_n) / 2
             sil_dict[atom] = sili
+        
+        
         except:
             sil_dict[atom] = None
 
@@ -2258,13 +2271,14 @@ def analyze(options):
             
         try:
             # calulate silhouette score
-            print "Calculating Silhoutte Scores for group M and N:"
+            print "Calculating Global Silhoutte Scores:"
             inter_list = [x for x in itertools.product(options.groupm, options.groupn)]
             m_list = permutations(options.groupm, r = 2)
-            
+            n_list = permutations(options.groupn, r = 2)
+                        
             m_dist_dict = {}
             inter_dist_dict = {}
-            
+            n_dist_dict = {}
                             
             for x,y in m_list:
                 distance_dict = per_atom_distance(x,y)
@@ -2274,6 +2288,15 @@ def analyze(options):
                     else:
                         m_dist_dict[key] = list()
                     m_dist_dict[key].append(distance_dict[key])
+                    
+            for x,y in n_list:
+                distance_dict = per_atom_distance(x,y)
+                for key in distance_dict:
+                    if key in n_dist_dict:
+                        pass
+                    else:
+                        n_dist_dict[key] = list()
+                    n_dist_dict[key].append(distance_dict[key])
             
             for x,y in inter_list:
                 distance_dict = per_atom_distance(x,y)
@@ -2284,7 +2307,7 @@ def analyze(options):
                         inter_dist_dict[key] = list()
                     inter_dist_dict[key].append(distance_dict[key])                
 
-            sil = get_sil(m_dist_dict, inter_dist_dict)
+            sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
 
 
         except:
@@ -2426,24 +2449,39 @@ def analyze(options):
         
         # calulate LODR_sil
         try:
-            pairwise_list = permutations(options.groupm, r=2)
+            m_list = permutations(options.groupm, r=2)
+            n_list = permutations(options.groupn, r=2)
             inter_list = [x
                           for x in itertools.product(options.groupm, options.groupn)]
             print "Calculating LODR silhouette scores:"
-            intra_lodr_dict = {}
+            m_lodr_dict = {}
             inter_lodr_dict = {}
-            
+            n_lodr_dict = {}
+                        
             lodr_dict = {}
-            for x, y in pairwise_list:
+            for x, y in m_list:
                 for resnum in resid_list:
                     lodr_dict[resnum] = eelocal(x, y, int(resnum))
 
-                    if resnum in intra_lodr_dict:
-                        intra_lodr_dict[resnum].append(lodr_dict[resnum])
+                    if resnum in m_lodr_dict:
+                        m_lodr_dict[resnum].append(lodr_dict[resnum])
                     else:
-                        intra_lodr_dict[resnum] = list()
-                        intra_lodr_dict[resnum].append(lodr_dict[resnum])
+                        m_lodr_dict[resnum] = list()
+                        m_lodr_dict[resnum].append(lodr_dict[resnum])
             
+            
+            lodr_dict = {}
+            for x, y in n_list:
+                for resnum in resid_list:
+                    lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                    if resnum in n_lodr_dict:
+                        n_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        n_lodr_dict[resnum] = list()
+                        n_lodr_dict[resnum].append(lodr_dict[resnum])
+                        
+                        
             lodr_dict = {}
             for x, y in inter_list:
                 for resnum in resid_list:
@@ -2455,7 +2493,7 @@ def analyze(options):
                         inter_lodr_dict[resnum] = list()
                         inter_lodr_dict[resnum].append(lodr_dict[resnum])
 
-            lodr_sil = get_sil(intra_lodr_dict, inter_lodr_dict)
+            lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
 
         except:
             pass
@@ -2963,7 +3001,7 @@ def analyze(options):
         ax.xaxis.set_minor_locator(minorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
-        plt.ylim([-1,1])
+        plt.ylim([0,1])
         fig = plt.gcf()
         fig.canvas.set_window_title(title)
         plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
@@ -3324,13 +3362,14 @@ def analyze(options):
             
             try:
                 # calulate silhouette score
-                print "Calculating Silhoutte Scores for group M and N:"
+                print "Calculating Global Silhoutte Scores:"
                 inter_list = [x for x in itertools.product(group_m, group_n)]
                 m_list = permutations(group_m, r = 2)
-                
+                n_list = permutations(group_n, r = 2)
+                                
                 m_dist_dict = {}
                 inter_dist_dict = {}
-                
+                n_dist_dict = {}
                                 
                 for x,y in m_list:
                     distance_dict = per_atom_distance(x,y)
@@ -3341,6 +3380,15 @@ def analyze(options):
                             m_dist_dict[key] = list()
                         m_dist_dict[key].append(distance_dict[key])
                 
+                for x,y in n_list:
+                    distance_dict = per_atom_distance(x,y)
+                    for key in distance_dict:
+                        if key in n_dist_dict:
+                            pass
+                        else:
+                            n_dist_dict[key] = list()
+                        n_dist_dict[key].append(distance_dict[key])
+                
                 for x,y in inter_list:
                     distance_dict = per_atom_distance(x,y)
                     for key in distance_dict:
@@ -3350,7 +3398,7 @@ def analyze(options):
                             inter_dist_dict[key] = list()
                         inter_dist_dict[key].append(distance_dict[key])                
 
-                sil = get_sil(m_dist_dict, inter_dist_dict)
+                sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
 
 
             except:
@@ -3496,24 +3544,39 @@ def analyze(options):
 
             # calulate LODR_sil
             try:
-                pairwise_list = permutations(group_m, r=2)
+                m_list = permutations(group_m, r=2)
+                n_list = permutations(group_n, r=2)
                 inter_list = [x
                               for x in itertools.product(group_m, group_n)]
                 print "Calculating LODR silhouette scores:"
-                intra_lodr_dict = {}
+                m_lodr_dict = {}
                 inter_lodr_dict = {}
-                
+                n_lodr_dict = {}
+                            
                 lodr_dict = {}
-                for x, y in pairwise_list:
+                for x, y in m_list:
                     for resnum in resid_list:
                         lodr_dict[resnum] = eelocal(x, y, int(resnum))
 
-                        if resnum in intra_lodr_dict:
-                            intra_lodr_dict[resnum].append(lodr_dict[resnum])
+                        if resnum in m_lodr_dict:
+                            m_lodr_dict[resnum].append(lodr_dict[resnum])
                         else:
-                            intra_lodr_dict[resnum] = list()
-                            intra_lodr_dict[resnum].append(lodr_dict[resnum])
+                            m_lodr_dict[resnum] = list()
+                            m_lodr_dict[resnum].append(lodr_dict[resnum])
                 
+                
+                lodr_dict = {}
+                for x, y in n_list:
+                    for resnum in resid_list:
+                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                        if resnum in n_lodr_dict:
+                            n_lodr_dict[resnum].append(lodr_dict[resnum])
+                        else:
+                            n_lodr_dict[resnum] = list()
+                            n_lodr_dict[resnum].append(lodr_dict[resnum])
+                            
+                            
                 lodr_dict = {}
                 for x, y in inter_list:
                     for resnum in resid_list:
@@ -3525,7 +3588,7 @@ def analyze(options):
                             inter_lodr_dict[resnum] = list()
                             inter_lodr_dict[resnum].append(lodr_dict[resnum])
 
-                lodr_sil = get_sil(intra_lodr_dict, inter_lodr_dict)
+                lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
 
             except:
                 pass
@@ -4067,7 +4130,7 @@ def analyze(options):
             ax.xaxis.set_minor_locator(minorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
-            plt.ylim([-1,1])
+            plt.ylim([0,1])
             fig = plt.gcf()
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
