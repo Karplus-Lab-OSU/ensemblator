@@ -2842,6 +2842,7 @@ elif options.analyze == True and options.prepare == False:
         ### PLOTTING ###
         # don't know what this does
         minorLocator = MultipleLocator(1)
+        majorLocator = MultipleLocator(10)
         # colors
         red = '#e41a1c'
         blue = '#377eb8'
@@ -2985,6 +2986,7 @@ elif options.analyze == True and options.prepare == False:
                    borderaxespad=0.)
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         fig = plt.gcf()
@@ -3031,6 +3033,7 @@ elif options.analyze == True and options.prepare == False:
                    borderaxespad=0.)
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         fig = plt.gcf()
@@ -3080,6 +3083,7 @@ elif options.analyze == True and options.prepare == False:
                    borderaxespad=0.)
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         plt.ylim([0,1])
@@ -3965,6 +3969,7 @@ elif options.analyze == True and options.prepare == False:
             ### PLOTTING ###
 
             minorLocator = MultipleLocator(1)
+            majorLocator = MultipleLocator(10)
             red = '#e41a1c'
             blue = '#377eb8'
             green = '#4daf4a'
@@ -4124,6 +4129,7 @@ elif options.analyze == True and options.prepare == False:
                        borderaxespad=0.)
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
             fig = plt.gcf()
@@ -4176,6 +4182,7 @@ elif options.analyze == True and options.prepare == False:
                        borderaxespad=0.)
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
             fig = plt.gcf()
@@ -4227,6 +4234,7 @@ elif options.analyze == True and options.prepare == False:
                        borderaxespad=0.)
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
             plt.ylim([0,1])
