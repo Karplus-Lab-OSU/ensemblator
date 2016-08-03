@@ -2774,6 +2774,7 @@ def analyze(options):
         ### PLOTTING ###
         # don't know what this does
         minorLocator = MultipleLocator(1)
+        majorLocator = MultipleLocator(10)
         # colors
         red = '#e41a1c'
         blue = '#377eb8'
@@ -2921,6 +2922,7 @@ def analyze(options):
                      )
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         fig = plt.gcf()
@@ -2972,6 +2974,7 @@ def analyze(options):
                      )
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         fig = plt.gcf()
@@ -3019,6 +3022,7 @@ def analyze(options):
                    borderaxespad=0.)
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
+        ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         plt.ylim([0,1])
@@ -3906,6 +3910,7 @@ def analyze(options):
             ### PLOTTING ###
 
             minorLocator = MultipleLocator(1)
+            majorLocator = MultipleLocator(10)
             red = '#e41a1c'
             blue = '#377eb8'
             green = '#4daf4a'
@@ -4062,6 +4067,7 @@ def analyze(options):
                          )
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
             fig = plt.gcf()
@@ -4118,6 +4124,7 @@ def analyze(options):
                          )
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
             fig = plt.gcf()
@@ -4165,6 +4172,7 @@ def analyze(options):
                        borderaxespad=0.)
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
+            ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
             plt.ylim([0,1])
