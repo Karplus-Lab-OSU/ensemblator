@@ -28,6 +28,7 @@ from sklearn import metrics
 import random
 from scipy.cluster.vq import kmeans, vq
 from sklearn.cluster import AgglomerativeClustering
+from scipy.cluster.hierarchy import dendrogram, linkage
 
 os.path.realpath(os.path.dirname(sys.argv[0]))
 
@@ -2927,9 +2928,9 @@ def analyze(options):
         ax.yaxis.set_ticks_position('left')
         fig = plt.gcf()
         fig.canvas.set_window_title(title)
-        plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+        plt.savefig(title + ".svg", bbox_inches='tight')
         plt.close()
-        print "eeGlobal plot saved as '" + title + ".png'."
+        print "eeGlobal plot saved as '" + title + ".svg'."
 
 
         print "Plotting eeLocal:"
@@ -2979,9 +2980,9 @@ def analyze(options):
         ax.yaxis.set_ticks_position('left')
         fig = plt.gcf()
         fig.canvas.set_window_title(title)
-        plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+        plt.savefig(title + ".svg", bbox_inches='tight')
         plt.close()
-        print "eeLocal plot saved as '" + title + ".png'."
+        print "eeLocal plot saved as '" + title + ".svg'."
         
         #### Silhouette plot!
         title = "Silhouette Scores"
@@ -3028,9 +3029,9 @@ def analyze(options):
         plt.ylim([0,1])
         fig = plt.gcf()
         fig.canvas.set_window_title(title)
-        plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+        plt.savefig(title + ".svg", bbox_inches='tight')
         plt.close()
-        print "Silhouette Score plot saved as '" + title + ".png'."
+        print "Silhouette Score plot saved as '" + title + ".svg'."
 
         # this will set the b-factors in the final overlay to be the
         # value of the inter_group b factor. Can be nice for visualizing
@@ -4072,9 +4073,9 @@ def analyze(options):
             ax.yaxis.set_ticks_position('left')
             fig = plt.gcf()
             fig.canvas.set_window_title(title)
-            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print "eeGlobal plot saved as '" + title + ".png'."
+            print "eeGlobal plot saved as '" + title + ".svg'."
 
 
             print "Plotting eeLocal:"
@@ -4129,9 +4130,9 @@ def analyze(options):
             ax.yaxis.set_ticks_position('left')
             fig = plt.gcf()
             fig.canvas.set_window_title(title)
-            plt.savefig(title + ".png" , dpi = 400, bbox_inches='tight')
+            plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print "eeLocal plot saved as '" + title + ".png'."
+            print "eeLocal plot saved as '" + title + ".svg'."
             
             
             #### Silhouette plot!
@@ -4178,10 +4179,37 @@ def analyze(options):
             plt.ylim([0,1])
             fig = plt.gcf()
             fig.canvas.set_window_title(title)
-            plt.savefig(title + ".png", dpi=400, bbox_inches='tight')
+            plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print "Silhouette Score plot saved as '" + title + ".png'."
+            print "Silhouette Score plot saved as '" + title + ".svg'."
             
+        
+        #### DENDROGRAM PLOT
+        title = "Dendrogram_dcut=" + str(dcut)
+        plt.figure()
+        # X is the final co-occurance matrix generated above
+        linkage_matrix = linkage(X, 'complete')
+        k = len(np.unique(labels_best))
+        # Find the distance threshold
+        t = linkage_matrix[linkage_matrix[:,2].argsort()]
+        th = t[linkage_matrix.shape[0] + 1 - k , 2]
+        
+        dendrogram(
+            linkage_matrix,
+            truncate_mode="none",  # all
+            #p=40,  # show only the last p merged clusters
+            #show_leaf_counts=True,  # numbers in brackets are counts, others idx
+            leaf_rotation=60.,
+            #leaf_font_size=8.,
+            color_threshold=th,
+            show_contracted=True,  # to get a distribution impression in truncated branches
+        )
+        plt.xlabel("Model ID")
+        plt.ylabel("Estimated Distance")       
+        plt.savefig(title + ".svg", bbox_inches='tight')
+
+
+
             
         # now need to sort the groups legend so that it is human readable
         groups_legend = open("groups_legend.tsv", "r")

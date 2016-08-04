@@ -4247,7 +4247,7 @@ elif options.analyze == True and options.prepare == False:
             plt.close()
             print "Silhouette Score plot saved as '" + title + ".svg'."
 
-
+        #### DENDROGRAM PLOT
         title = "Dendrogram_dcut=" + str(dcut)
         plt.figure()
         # X is the final co-occurance matrix generated above
