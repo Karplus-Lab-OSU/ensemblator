@@ -32,7 +32,16 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 
 os.path.realpath(os.path.dirname(sys.argv[0]))
 
+def atoi(text):
+    return int(text) if text.isdigit() else text
 
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [ atoi(c) for c in re.split('(\d+)', text) ]
 
 class TextRedirector(object):
     def __init__(self, widget, tag="stdout"):
@@ -390,7 +399,7 @@ def eeprep(pdbs, bad_files):
                     all_atom_deets.append(atom_deets)
                     all_atom_lines[atom_deets] = line
             infile.close()
-            all_atom_deets.sort()
+            all_atom_deets.sort(key=natural_keys)
             for deets in all_atom_deets:
                 temp.append(all_atom_lines[deets])
             # write endmdl line

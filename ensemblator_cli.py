@@ -27,6 +27,17 @@ from sklearn.cluster import AgglomerativeClustering
 from scipy.cluster.hierarchy import dendrogram, linkage
 
 
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [ atoi(c) for c in re.split('(\d+)', text) ]
+
 
 # definition for a type of dictionary that will allow new dictionaries to
 # be added on demand
@@ -522,7 +533,7 @@ def eeprep(pdbs):
                     all_atom_deets.append(atom_deets)
                     all_atom_lines[atom_deets] = line
             infile.close()
-            all_atom_deets.sort()
+            all_atom_deets.sort(key=natural_keys)
             for deets in all_atom_deets:
                 outfile.write(all_atom_lines[deets])
             # write endmdl line
