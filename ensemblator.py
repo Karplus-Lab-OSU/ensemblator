@@ -2944,6 +2944,14 @@ def analyze(options):
                    mode="expand",
                    borderaxespad=0.)
         ax = plt.gca()
+        ax.add_patch(
+            patches.Rectangle(
+                ((min(mean_sil.keys()) * -2), 0.4),   # (x,y)
+                (max(mean_sil.keys()) * 2),          # width
+                0.2,          # height
+                alpha=0.1
+            )
+        )  
         ax.xaxis.set_minor_locator(minorLocator)
         ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
@@ -4014,6 +4022,14 @@ def analyze(options):
                        mode="expand",
                        borderaxespad=0.)
             ax = plt.gca()
+            ax.add_patch(
+                patches.Rectangle(
+                    ((min(mean_sil.keys()) * -2), 0.4),   # (x,y)
+                    (max(mean_sil.keys()) * 2),          # width
+                    0.2,          # height
+                    alpha=0.1
+                )
+            )  
             ax.xaxis.set_minor_locator(minorLocator)
             ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
