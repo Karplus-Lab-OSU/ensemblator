@@ -25,7 +25,6 @@ import random
 from scipy.cluster.vq import kmeans, vq
 from sklearn.cluster import AgglomerativeClustering
 from scipy.cluster.hierarchy import dendrogram, linkage
-import matplotlib.patches as patches
 
 
 def atoi(text):
@@ -3007,15 +3006,8 @@ elif options.analyze == True and options.prepare == False:
                    ncol=2,
                    mode="expand",
                    borderaxespad=0.)
+        plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
         ax = plt.gca()
-        ax.add_patch(
-            patches.Rectangle(
-                ((min(mean_sil.keys()) * -2), 0.4),   # (x,y)
-                (max(mean_sil.keys()) * 2),          # width
-                0.2,          # height
-                alpha=0.1
-            )
-        )  
         ax.xaxis.set_minor_locator(minorLocator)
         ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
@@ -4085,16 +4077,9 @@ elif options.analyze == True and options.prepare == False:
                        loc=3,
                        ncol=2,
                        mode="expand",
-                       borderaxespad=0.)     
+                       borderaxespad=0.)
+            plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
             ax = plt.gca()
-            ax.add_patch(
-                patches.Rectangle(
-                    ((min(mean_sil.keys()) * -2), 0.4),   # (x,y)
-                    (max(mean_sil.keys()) * 2),          # width
-                    0.2,          # height
-                    alpha=0.1
-                )
-            )  
             ax.xaxis.set_minor_locator(minorLocator)
             ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
