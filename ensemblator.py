@@ -2353,7 +2353,7 @@ def analyze(options):
         # so are less complicated
         # they also calculate lodr rather than rmsd, etc
 
-m_lodr_dict = {}
+        m_lodr_dict = {}
         inter_lodr_dict = {}
         n_lodr_dict = {}
 
