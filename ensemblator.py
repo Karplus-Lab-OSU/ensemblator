@@ -2209,87 +2209,26 @@ def analyze(options):
     # group are set manually
     if options.auto == False:
         # NOW DOING eeGLOBAL stuff
-        # calulate RMS level of intra-ensemble variation for each atom among
-        # m structures
-        print "Calculating Intra Group M RMSD:"
-        pairwise_list = combinations(options.groupm, r = 2)
-        all_dist_dict = {}
 
-        # for each pair of models in group m
-        for x,y in pairwise_list:
-            # get the distances per atom
-            distance_dict = per_atom_distance(x,y)
-            for key in distance_dict:
-                # append the value to a list of pairwise distances, by atom
-                if key in all_dist_dict:
-                    all_dist_dict[key].append(distance_dict[key])
-                else:
-                    all_dist_dict[key] = list()
-                    all_dist_dict[key].append(distance_dict[key])
-
-        # get the rmsd of these values
-        group_m_rmsd = get_rmsd(all_dist_dict)
-
-        # try statement here is so that it will except if there is only a group M
-        # defined
-        # calulate RMS level of intra-ensemble variation for each atom among n
-        # structures
+        # get all the distances
+        m_dist_dict = {}
+        inter_dist_dict = {}
+        n_dist_dict = {}        
+       
         try:
-            # same as group m
-            pairwise_list = combinations(options.groupn, r = 2)
-            all_dist_dict = {}
-            print "Calculating Intra Group N RMSD:"
-            for x,y in pairwise_list:
-                distance_dict = per_atom_distance(x,y)
-                for key in distance_dict:
-                    if key in all_dist_dict:
-                        all_dist_dict[key].append(distance_dict[key])
-                    else:
-                        all_dist_dict[key] = list()
-                        all_dist_dict[key].append(distance_dict[key])
-            group_n_rmsd = get_rmsd(all_dist_dict)
-
-            # calulate RMS level of inter-ensemble variation for each atom
-            # between m and n structures
-            # same as group m and n, but will be done on the pairs that are m-n
-            print "Calculating Inter Group RMSD:"
-            inter_list = [x for x in itertools.product(
-                                                        options.groupm,
-                                                        options.groupn
-                                                        )
-                          ]
-
-            all_dist_dict = {}
+            inter_list = [x for x in itertools.product(options.groupm, options.groupn)]
             for x,y in inter_list:
                 distance_dict = per_atom_distance(x,y)
                 for key in distance_dict:
-                    if key in all_dist_dict:
+                    if key in inter_dist_dict:
                         pass
                     else:
-                        all_dist_dict[key] = list()
-                    all_dist_dict[key].append(distance_dict[key])
-            inter_rmsd = get_rmsd(all_dist_dict)
-
-            print "Calculating Closest Approach Distance:"
-            # now get the closest approach info
-            closest_approach_info = get_min(all_dist_dict)
-            closest_approach_index =  closest_approach_info["index"]
-            closest_approach = closest_approach_info["min"]
-
+                        inter_dist_dict[key] = list()
+                    inter_dist_dict[key].append(distance_dict[key]) 
         except:
             pass
-            
         try:
-            # calulate silhouette score
-            print "Calculating Global Silhoutte Scores:"
-            inter_list = [x for x in itertools.product(options.groupm, options.groupn)]
             m_list = combinations(options.groupm, r = 2)
-            n_list = combinations(options.groupn, r = 2)
-                        
-            m_dist_dict = {}
-            inter_dist_dict = {}
-            n_dist_dict = {}
-                            
             for x,y in m_list:
                 distance_dict = per_atom_distance(x,y)
                 for key in distance_dict:
@@ -2298,7 +2237,10 @@ def analyze(options):
                     else:
                         m_dist_dict[key] = list()
                     m_dist_dict[key].append(distance_dict[key])
-                    
+        except:
+            pass
+        try:
+            n_list = combinations(options.groupn, r = 2)
             for x,y in n_list:
                 distance_dict = per_atom_distance(x,y)
                 for key in distance_dict:
@@ -2307,22 +2249,43 @@ def analyze(options):
                     else:
                         n_dist_dict[key] = list()
                     n_dist_dict[key].append(distance_dict[key])
-            
-            for x,y in inter_list:
-                distance_dict = per_atom_distance(x,y)
-                for key in distance_dict:
-                    if key in inter_dist_dict:
-                        pass
-                    else:
-                        inter_dist_dict[key] = list()
-                    inter_dist_dict[key].append(distance_dict[key])                
-
-            sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
-
-
         except:
-            pass            
-            
+            pass
+
+
+        # get rmsds and scores
+        try:
+            # get either the avg or the rmsd of these values
+            print "Calculating Intra Group M RMSD:"            
+            group_m_rmsd = get_rmsd(m_dist_dict)
+        except:
+            pass
+        
+        try:
+            # get either the avg or the rmsd of these values
+            print "Calculating Intra Group N RMSD:"
+            group_n_rmsd = get_rmsd(n_dist_dict)
+        except:
+            pass
+
+        try:
+            # get either the avg or the rmsd of these values
+            print "Calculating Inter Group RMSD:"
+            inter_rmsd = get_rmsd(inter_dist_dict)
+            print "Calculating Closest Approach Distance:"
+            # now get the closest approach info
+            closest_approach_info = get_min(all_dist_dict)
+            closest_approach_index = closest_approach_info["index"]
+            closest_approach = closest_approach_info["min"]
+        except:
+            pass       
+
+        try:
+            # calulate silhouette score
+            print "Calculating Global Silhoutte Scores:"
+            sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
+        except:
+            pass
 
         ### combine them all into a well formatted dictionary for ease of access
         eeglobal_dict = NestedDict()
@@ -2390,84 +2353,12 @@ def analyze(options):
         # so are less complicated
         # they also calculate lodr rather than rmsd, etc
 
+m_lodr_dict = {}
+        inter_lodr_dict = {}
+        n_lodr_dict = {}
 
-        print "Calculating LODR scores for group M:"
-        pairwise_list = combinations(options.groupm, r = 2)
-        all_lodr_dict = {}
-        lodr_dict = {}
-
-        for x,y in pairwise_list:
-            for resnum in resid_list:
-                lodr_dict[resnum] = eelocal(x,y, int(resnum))
-
-                if resnum in all_lodr_dict:
-                    all_lodr_dict[resnum].append(lodr_dict[resnum])
-                else:
-                    all_lodr_dict[resnum] = list()
-                    all_lodr_dict[resnum].append(lodr_dict[resnum])
-
-        group_m_lodr = get_rmsd(all_lodr_dict)
-
-        ### calulate LODR among n structures
-        try:
-            pairwise_list = combinations(options.groupn, r = 2)
-            print "Calculating LODR scores for group N:"
-            all_lodr_dict = {}
-            lodr_dict = {}
-
-            for x,y in pairwise_list:
-                for resnum in resid_list:
-                    lodr_dict[resnum] = eelocal(x,y, int(resnum))
-
-                    if resnum in all_lodr_dict:
-                        all_lodr_dict[resnum].append(lodr_dict[resnum])
-                    else:
-                        all_lodr_dict[resnum] = list()
-                        all_lodr_dict[resnum].append(lodr_dict[resnum])
-
-            group_n_lodr = get_rmsd(all_lodr_dict)
-            ### calulate LODR between m and n structures
-            print "Calculating Inter Group LODR:"
-
-            inter_list = [x for x in itertools.product(
-                                                        options.groupm,
-                                                        options.groupn
-                                                        )
-                          ]
-
-            all_lodr_dict = {}
-            lodr_dict = {}
-            for x,y in inter_list:
-                for resnum in resid_list:
-                    lodr_dict[resnum] = eelocal(x,y, int(resnum))
-
-                    if resnum in all_lodr_dict:
-                        all_lodr_dict[resnum].append(lodr_dict[resnum])
-                    else:
-                        all_lodr_dict[resnum] = list()
-                        all_lodr_dict[resnum].append(lodr_dict[resnum])
-            inter_group_lodr = get_rmsd(all_lodr_dict)
-
-            print "Calculating Minimum LODR between M and N at each residue:"
-
-            minimum_lodr_info = get_min(all_lodr_dict)
-            minimum_lodr_index =  minimum_lodr_info["index"]
-            minimum_lodr = minimum_lodr_info["min"]
-
-        except:
-            pass
-        
-        # calulate LODR_sil
         try:
             m_list = combinations(options.groupm, r=2)
-            n_list = combinations(options.groupn, r=2)
-            inter_list = [x
-                          for x in itertools.product(options.groupm, options.groupn)]
-            print "Calculating LODR silhouette scores:"
-            m_lodr_dict = {}
-            inter_lodr_dict = {}
-            n_lodr_dict = {}
-                        
             lodr_dict = {}
             for x, y in m_list:
                 for resnum in resid_list:
@@ -2478,8 +2369,10 @@ def analyze(options):
                     else:
                         m_lodr_dict[resnum] = list()
                         m_lodr_dict[resnum].append(lodr_dict[resnum])
-            
-            
+        except:
+            pass
+        try:
+            n_list = combinations(options.groupn, r=2)
             lodr_dict = {}
             for x, y in n_list:
                 for resnum in resid_list:
@@ -2490,8 +2383,7 @@ def analyze(options):
                     else:
                         n_lodr_dict[resnum] = list()
                         n_lodr_dict[resnum].append(lodr_dict[resnum])
-                        
-                        
+            inter_list = [x for x in itertools.product(options.groupm, options.groupn)]
             lodr_dict = {}
             for x, y in inter_list:
                 for resnum in resid_list:
@@ -2502,12 +2394,33 @@ def analyze(options):
                     else:
                         inter_lodr_dict[resnum] = list()
                         inter_lodr_dict[resnum].append(lodr_dict[resnum])
-
-            lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
-
         except:
             pass
 
+
+        print "Calculating LODR scores for group M:"
+        group_m_lodr = get_rmsd(m_lodr_dict)
+
+        ### calulate LODR among n structures
+        try:
+            print "Calculating LODR scores for group N:"
+            group_n_lodr = get_rmsd(n_lodr_dict)
+            ### calulate LODR between m and n structures
+            print "Calculating Inter Group LODR:"
+            inter_group_lodr = get_rmsd(inter_lodr_dict)
+            print "Calculating Minimum LODR between M and N at each residue:"
+            minimum_lodr_info = get_min(inter_lodr_dict)
+            minimum_lodr_index = minimum_lodr_info["index"]
+            minimum_lodr = minimum_lodr_info["min"]
+        except:
+            pass
+        # calulate LODR_sil
+        try:
+            print "Calculating LODR silhouette scores:"
+            lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
+        except:
+            pass    
+            
         # same as eeGlobal
         eelocal_dict = NestedDict()
         for resid in resid_list:
@@ -3332,80 +3245,13 @@ def analyze(options):
             # same as above, in the non-auto section.
             # for detailed comments, see that section of the code
 
-            # calulate RMS level of intra-ensemble variation for each atom
-            # among m structures
-            try:
-                print "Calculating Intra Group M RMSD:"
-                pairwise_list = combinations(group_m, r = 2)
-                all_dist_dict = {}
-
-                for x,y in pairwise_list:
-                    distance_dict = per_atom_distance(x,y)
-                    for key in distance_dict:
-                        if key in all_dist_dict:
-                            all_dist_dict[key].append(distance_dict[key])
-                        else:
-                            all_dist_dict[key] = list()
-                            all_dist_dict[key].append(distance_dict[key])
-
-                group_m_rmsd = get_rmsd(all_dist_dict)
-            except:
-                pass
-
-            # calulate RMS level of intra-ensemble variation for each atom
-            # among n structures
-            try:
-
-                pairwise_list = combinations(group_n, r = 2)
-                all_dist_dict = {}
-                print "Calculating Intra Group N RMSD:"
-                for x,y in pairwise_list:
-                    distance_dict = per_atom_distance(x,y)
-                    for key in distance_dict:
-                        if key in all_dist_dict:
-                            all_dist_dict[key].append(distance_dict[key])
-                        else:
-                            all_dist_dict[key] = list()
-                            all_dist_dict[key].append(distance_dict[key])
-                group_n_rmsd = get_rmsd(all_dist_dict)
-            except:
-                pass
-            try:
-                # calulate RMS level of inter-ensemble variation for each atom
-                # between m and n structures
-                print "Calculating Inter Group RMSD:"
-                inter_list = [x for x in itertools.product(group_m, group_n)]
-                all_dist_dict = {}
-                for x,y in inter_list:
-                    distance_dict = per_atom_distance(x,y)
-                    for key in distance_dict:
-                        if key in all_dist_dict:
-                            pass
-                        else:
-                            all_dist_dict[key] = list()
-                        all_dist_dict[key].append(distance_dict[key])
-                inter_rmsd = get_rmsd(all_dist_dict)
-                print "Calculating Closest Approach Distance:"
-
-                closest_approach_info = get_min(all_dist_dict)
-                closest_approach_index =  closest_approach_info["index"]
-                closest_approach = closest_approach_info["min"]
-
-            except:
-                pass
+            m_dist_dict = {}
+            inter_dist_dict = {}
+            n_dist_dict = {}
             
-            try:
-                # calulate silhouette score
-                print "Calculating Global Silhoutte Scores:"
-                inter_list = [x for x in itertools.product(group_m, group_n)]
-                m_list = combinations(group_m, r = 2)
-                n_list = combinations(group_n, r = 2)
-                                
-                m_dist_dict = {}
-                inter_dist_dict = {}
-                n_dist_dict = {}
-                                
-                for x,y in m_list:
+            
+            m_list = combinations(group_m, r = 2)
+            for x,y in m_list:
                     distance_dict = per_atom_distance(x,y)
                     for key in distance_dict:
                         if key in m_dist_dict:
@@ -3413,31 +3259,65 @@ def analyze(options):
                         else:
                             m_dist_dict[key] = list()
                         m_dist_dict[key].append(distance_dict[key])
-                
-                for x,y in n_list:
-                    distance_dict = per_atom_distance(x,y)
-                    for key in distance_dict:
-                        if key in n_dist_dict:
-                            pass
-                        else:
-                            n_dist_dict[key] = list()
-                        n_dist_dict[key].append(distance_dict[key])
-                
+            try:            
+                inter_list = [x for x in itertools.product(group_m, group_n)]
                 for x,y in inter_list:
-                    distance_dict = per_atom_distance(x,y)
-                    for key in distance_dict:
-                        if key in inter_dist_dict:
-                            pass
-                        else:
-                            inter_dist_dict[key] = list()
-                        inter_dist_dict[key].append(distance_dict[key])                
-
-                sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
-
-
+                        distance_dict = per_atom_distance(x,y)
+                        for key in distance_dict:
+                            if key in inter_dist_dict:
+                                pass
+                            else:
+                                inter_dist_dict[key] = list()
+                            inter_dist_dict[key].append(distance_dict[key])
+                n_list = combinations(group_n, r = 2)
+                for x,y in n_list:
+                        distance_dict = per_atom_distance(x,y)
+                        for key in distance_dict:
+                            if key in n_dist_dict:
+                                pass
+                            else:
+                                n_dist_dict[key] = list()
+                            n_dist_dict[key].append(distance_dict[key])
             except:
                 pass
-                
+                   
+            
+            # calulate RMS level of intra-ensemble variation for each atom
+            # among m structures
+            try:
+                print "Calculating Intra Group M RMSD:"
+                group_m_rmsd = get_rmsd(m_dist_dict)
+            except:
+                pass
+
+            # calulate RMS level of intra-ensemble variation for each atom
+            # among n structures
+            try:
+                group_n_rmsd = get_rmsd(n_dist_dict)
+            except:
+                pass
+            
+            try:
+                # calulate RMS level of inter-ensemble variation for each atom
+                # between m and n structures
+                print "Calculating Inter Group RMSD:"
+                inter_rmsd = get_rmsd(inter_dist_dict)
+                print "Calculating Closest Approach Distance:"
+                closest_approach_info = get_min(inter_dist_dict)
+                closest_approach_index = closest_approach_info["index"]
+                closest_approach = closest_approach_info["min"]
+            except:
+                pass
+            try:
+                # calulate silhouette score
+                print "Calculating Global Silhoutte Scores:"
+                sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
+            except:
+                pass
+
+                      
+            
+            
             # combine them all into a well formatted dictionary for ease of
             # access
 
@@ -3506,99 +3386,26 @@ def analyze(options):
             atomid_list = list(sorted(atomid_list))
 
 
-
+            ####################################################################
             # eeLocal calculations
+            
+            m_lodr_dict = {}
+            inter_lodr_dict = {}
+            n_lodr_dict = {}
+
+            m_list = combinations(group_m, r=2)
+            lodr_dict = {}
+            for x, y in m_list:
+                for resnum in resid_list:
+                    lodr_dict[resnum] = eelocal(x, y, int(resnum))
+
+                    if resnum in m_lodr_dict:
+                        m_lodr_dict[resnum].append(lodr_dict[resnum])
+                    else:
+                        m_lodr_dict[resnum] = list()
+                        m_lodr_dict[resnum].append(lodr_dict[resnum])
             try:
-                print "Calculating LODR scores for group M:"
-                pairwise_list = combinations(group_m, r = 2)
-                all_lodr_dict = {}
-                lodr_dict = {}
-
-                for x,y in pairwise_list:
-                    for resnum in resid_list:
-                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
-
-                        if resnum in all_lodr_dict:
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            all_lodr_dict[resnum] = list()
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-
-                group_m_lodr = get_rmsd(all_lodr_dict)
-            except:
-                pass
-            # calulate LODR among n structures
-            try:
-                pairwise_list = combinations(group_n, r = 2)
-                print "Calculating LODR scores for group N:"
-                all_lodr_dict = {}
-                lodr_dict = {}
-
-                for x,y in pairwise_list:
-                    for resnum in resid_list:
-                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
-
-                        if resnum in all_lodr_dict:
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            all_lodr_dict[resnum] = list()
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-
-                group_n_lodr = get_rmsd(all_lodr_dict)
-            except:
-                pass
-            try:
-                # calulate LODR between m and n structures
-                print "Calculating Inter Group LODR:"
-                inter_list = [x for x in itertools.product(group_m, group_n)]
-
-                all_lodr_dict = {}
-                lodr_dict = {}
-                for x,y in inter_list:
-                    for resnum in resid_list:
-                        lodr_dict[resnum] = eelocal(x,y, int(resnum))
-
-                        if resnum in all_lodr_dict:
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            all_lodr_dict[resnum] = list()
-                            all_lodr_dict[resnum].append(lodr_dict[resnum])
-                inter_group_lodr = get_rmsd(all_lodr_dict)
-
-                print("Calculating Minimum LODR between " +
-                      "M and N at each residue:"
-                      )
-
-                minimum_lodr_info = get_min(all_lodr_dict)
-                minimum_lodr_index =  minimum_lodr_info["index"]
-                minimum_lodr = minimum_lodr_info["min"]
-
-            except:
-                pass
-
-            # calulate LODR_sil
-            try:
-                m_list = combinations(group_m, r=2)
                 n_list = combinations(group_n, r=2)
-                inter_list = [x
-                              for x in itertools.product(group_m, group_n)]
-                print "Calculating LODR silhouette scores:"
-                m_lodr_dict = {}
-                inter_lodr_dict = {}
-                n_lodr_dict = {}
-                            
-                lodr_dict = {}
-                for x, y in m_list:
-                    for resnum in resid_list:
-                        lodr_dict[resnum] = eelocal(x, y, int(resnum))
-
-                        if resnum in m_lodr_dict:
-                            m_lodr_dict[resnum].append(lodr_dict[resnum])
-                        else:
-                            m_lodr_dict[resnum] = list()
-                            m_lodr_dict[resnum].append(lodr_dict[resnum])
-                
-                
                 lodr_dict = {}
                 for x, y in n_list:
                     for resnum in resid_list:
@@ -3609,8 +3416,7 @@ def analyze(options):
                         else:
                             n_lodr_dict[resnum] = list()
                             n_lodr_dict[resnum].append(lodr_dict[resnum])
-                            
-                            
+                inter_list = [x for x in itertools.product(group_m, group_n)]
                 lodr_dict = {}
                 for x, y in inter_list:
                     for resnum in resid_list:
@@ -3621,12 +3427,39 @@ def analyze(options):
                         else:
                             inter_lodr_dict[resnum] = list()
                             inter_lodr_dict[resnum].append(lodr_dict[resnum])
-
-                lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
-
             except:
                 pass
 
+            try:
+                print "Calculating LODR scores for group M:"
+                group_m_lodr = get_rmsd(m_lodr_dict)
+            except:
+                pass
+            # calulate LODR among n structures
+            try:
+                print "Calculating LODR scores for group N:"
+                group_n_lodr = get_rmsd(n_lodr_dict)
+            except:
+                pass
+            try:
+                # calulate LODR between m and n structures
+                print "Calculating Inter Group LODR:"
+                inter_group_lodr = get_rmsd(inter_lodr_dict)
+                print("Calculating Minimum LODR between " +
+                      "M and N at each residue:")
+                minimum_lodr_info = get_min(inter_lodr_dict)
+                minimum_lodr_index = minimum_lodr_info["index"]
+                minimum_lodr = minimum_lodr_info["min"]
+            except:
+                pass
+            # calulate LODR_sil
+            try:
+                print "Calculating LODR silhouette scores:"
+                lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
+            except:
+                pass
+                
+             
             eelocal_dict = NestedDict()
             for resid in resid_list:
                 try:
