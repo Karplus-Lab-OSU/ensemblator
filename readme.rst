@@ -13,8 +13,9 @@ comparing two whole ensembles; as well, there is an option to automatically
 try to identify different groups within a single ensemble, and compare 
 those.
 
-..  image:: screenshots/all3.png
-	
+.. image:: screenshots/all3.png
+
+.. image:: screenshots/silhouette_example.png
 
 Table of Contents
 ******************
