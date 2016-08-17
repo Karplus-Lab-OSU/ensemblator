@@ -280,6 +280,12 @@ The Output Files
 
     This tab-separated table contains information about each of the pairs of models. From left to right, the columns list: the id of model x, the id of model y, the percent of the total atoms in the core for this pair, the rmsd for all non-core atoms in the two structures, the rmsd for only the core atoms in this pair of structures, and the *distance score* calculated for these to structures (`see clustering methods for explanation <#clustering-methods>`_).
 
+'clustering_silhouette_scores.tsv'
+----------------------------------
+
+    This tab-separated table contains the calculated mean Silhouette Index for each value of K, up to the Maximum Value Observed. This is useful to determine why a certain value of K might have been selected for the final value for K (whichever has the highest silhouette index will be chosen).
+
+
 'eeGlobal\_out.tsv'
 ---------------------------------------
 
@@ -293,7 +299,7 @@ The Output Files
 'sil_scores.tsv':
 ---------------------------------------
       
-      This tab-separated table contains information about the quality of the clusters discovered, if Affinity Propagation was the method used. The columns are the model id, the group id, and the score. The silhouette score is defined (from wikipedia) as:
+      This tab-separated table contains information about the quality of the clusters discovered. The columns are the model id, the group id, and the score. The silhouette score is defined (from wikipedia) as:
         
             The silhouette value is a measure of how similar an object is to its own cluster (cohesion) compared to other clusters (separation). The silhouette ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters. If most objects have a high value, then the clustering configuration is appropriate. If many points have a low or negative value, then the clustering configuration may have too many or too few clusters.
 
@@ -312,6 +318,19 @@ eeLocal Results
 .. image:: screenshots/eeLocal.png
 
 A graph of some of the data from 'eeLocal\_out.tsv'. This plot is showing the RMS-LODR (or average LODR) of *just the backbone atoms* for each group, between the groups, as well as showing the smallest difference in LODR between any pair from the groups. Particularly interesting are areas where the inter-group RMSD or the closest approach are higher than the Group M or Group N RMS-LODR, indicating a region where the deviation in local conformation between groups is higher than within either group.
+
+Clustering Dendrogram
+---------------------
+
+.. image:: screenshots/dendrogram_example.svg
+
+A dendrogram depicting the results from the agglomerative hierarchical clustering, with models labelled by ID, and cluster identity labelled by color.
+
+Silhouette-like Metric Results
+-----------------------------
+
+.. image:: screenshots/silhouette_example.png
+
 
 
 The Final Overlays
