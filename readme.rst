@@ -322,7 +322,7 @@ A graph of some of the data from 'eeLocal\_out.tsv'. This plot is showing the RM
 Clustering Dendrogram
 ---------------------
 
-.. image:: screenshots/dendrogram_example.svg
+.. image:: screenshots/dendrogram_example.png
 
 A dendrogram depicting the results from the agglomerative hierarchical clustering, with models labelled by ID, and cluster identity labelled by color.
 
