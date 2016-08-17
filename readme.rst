@@ -13,9 +13,7 @@ comparing two whole ensembles; as well, there is an option to automatically
 try to identify different groups within a single ensemble, and compare 
 those.
 
-.. image:: screenshots/all3.png
-
-.. image:: screenshots/silhouette_example.png
+..  image:: screenshots/all3.png
 
 Table of Contents
 ******************
@@ -332,14 +330,14 @@ Silhouette-like Metric Results
 
 .. image:: screenshots/silhouette_example.png
 
-
+A graph showing a silhouette-score-like metric calculated for the ensembles. Where this value is closer to 1, the two ensembles are significantly different. Where this value is close to zero, the two ensembles are insignificantly different. In between, highlighted by a transparent grey box, it is more difficult to draw conclusions about whether the ensembles are significantly different or not. The mean silhouette score (shown in red) is the mean of both the Global and Local silhouette scores, and usually is the most useful metric for identifying regions of interest between two ensembles.
 
 The Final Overlays
 ---------------------------------------
 
 .. image:: screenshots/example.png
 
-The final overlay of structures is the overlay calculated by using the first model in the ensemble as a reference structure, and aligning all the other models to this first model, using only the common core atoms determined depending on your distance cutoff. Typically this file will be named something like "global\_overlay\_X.X.pdb". The model numbers in this file correspond to the key in "model\_legend.tsv", **though please note that pymol begins reporting the first model as "1", when actually it is "0"** . As well, this pdb file will be split into pdb files for each group in the analysis, without changing the overlay. This is to make it easier to make figures like the one above, comparing two groups.
+The final overlay of structures is the overlay calculated by using the first model in the ensemble as a reference structure, and aligning all the other models to this first model, using only the common core atoms determined depending on your distance cutoff. Typically this file will be named something like "global\_overlay\_X.X.pdb". The model numbers in this file correspond to the key in "model\_legend.tsv", **though please note that pymol begins reporting the first model as "1", when actually it is "0"** . As well, this pdb file will be split into pdb files for each group in the analysis, without changing the overlay. This is to make it easier to make figures like the one above, comparing two groups. Finally, these PDB files will have the model name in the PDB file, next to the MODEL and TER lines.
                 
                 
 Known Bugs:
@@ -347,7 +345,7 @@ Known Bugs:
 
 * IO errors on Windows.
 
-    This is a result of the rate at which the *Ensemblator* saves and deletes intermediate files. It seems to be too fast for Windows, and sometimes results in a permission error that crashes the system. It's still possible to use the *Ensemblator* on Windows, but you will have to click "Go" again and again. It's basically unusable and would require a considerable rewrite to get things working smoothly on Windows. For now, I don't have any options for you.
+    This is a result of the rate at which the *Ensemblator* saves and deletes intermediate files. It seems to be too fast for Windows (to scan using Windows Defender), and sometimes results in a permission error that crashes the system. It's still possible to use the *Ensemblator* on Windows, but you will have to click "Go" again and again. It's basically unusable and would require a considerable rewrite to get things working smoothly on Windows. For now, I don't have any options for you.
 
 * command 'muscle -in <somefile> -out <somefile>' not found. (Even though you really do have muscle installed) 
 
