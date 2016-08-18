@@ -253,7 +253,9 @@ Calculating Silhouette-like Score
     For a given M,N pair of grouped structures, for each of the two groups, every atom’s global silhouette score is calculated as the mean pairwise distance between the groups minus the mean pairwise distance within the group, divided by the higher of the two values: 
 
     *a* = mean(d\ :sub:`intra`)
+    
     *b* = mean(d\ :sub:`inter`)
+    
     *Silhouette Score* = ( *b* - *a* ) / max(*b*,*a*)
 
     Then the silhouette scores for each atom are averaged across the two groups, and a residue-based value is then obtained by averaging the values for the N, CA, C, and O atoms of each residue. Another silhouette score for the local backbone conformation comparison is similarly calculated for each residue based on the locally-overlaid dipeptide residual (LODR) distances. A final silhouette index for a residue is the average of the global and local silhouette scores. The level of detectable difference between the groups increases as the index goes from near 0 to near 1. In the intermediate ranges, which we subjectively defined as 0.35 – 0.65, we consider the groups are neither notably similar nor notably different; in these ranges, more fine clustering could reveal subgroups with more notable differences.
