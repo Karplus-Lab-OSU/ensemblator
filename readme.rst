@@ -245,6 +245,20 @@ Calculating LODR
 --------------------
 
     The locally overlaid dipeptide residual (LODR) is a simple distance-based quantity that does not define individual conformations but defines how closely two conformations compare. Conceptually, it reports information on each residue, by considering the dipeptide unit it makes with the previous residue. To calculate it, first the dipeptides are overlayed based on the Cα, C, O, N, and Cα atoms of the peptide unit preceding the residue, and then the LODR-score is defined as the RMSD between the C, O, N and Cα atoms in the subsequent peptide unit. Given this definition, no LODR values will exist for the first and last residues in a protein (as there are not complete peptide units on both sides of these residues), or for residues bordering chain-breaks. For more details see `this paper by Clark, Tronrud, and Karplus, which describes a much older version of the Ensemblator. <http://onlinelibrary.wiley.com/doi/10.1002/pro.2714/abstract>`_
+
+
+Calculating Silhouette-like Score
+---------------------------------
+
+    For a given M,N pair of grouped structures, for each of the two groups, every atom’s global silhouette score is calculated as the mean pairwise distance between the groups minus the mean pairwise distance within the group, divided by the higher of the two values: 
+
+    *a* = mean(d\ :sub:`intra`)
+    *b* = mean(d\ :sub:`inter`)
+    *Silhouette Score* = ( *b* - *a* ) / max(*b*,*a*)
+
+    Then the silhouette scores for each atom are averaged across the two groups, and a residue-based value is then obtained by averaging the values for the N, CA, C, and O atoms of each residue. Another silhouette score for the local backbone conformation comparison is similarly calculated for each residue based on the locally-overlaid dipeptide residual (LODR) distances. A final silhouette index for a residue is the average of the global and local silhouette scores. The level of detectable difference between the groups increases as the index goes from near 0 to near 1. In the intermediate ranges, which we subjectively defined as 0.35 – 0.65, we consider the groups are neither notably similar nor notably different; in these ranges, more fine clustering could reveal subgroups with more notable differences.
+
+
     
 Clustering Methods
 -------------------
@@ -288,12 +302,12 @@ The Output Files
 'eeGlobal\_out.tsv'
 ---------------------------------------
 
-    This tab-separated table contains information each atom in the ensemble. From left to right the columns describe: the residue id of the atom, the atom type, the RMSD of the atom calculated pairwise from group M (ie. the RMSD of all the pairwise distances in group M), the same for group N, the same but calculated from each M to N pair, the closest distance between any member of M with any member of N, the pair of models which actually had that closest approach, and whether or not this  atom was included in the common core calculated for the ensemble.
+    This tab-separated table contains information each atom in the ensemble. From left to right the columns describe: the residue id of the atom, the atom type, the RMSD of the atom calculated pairwise from group M (ie. the RMSD of all the pairwise distances in group M), the same for group N, the same but calculated from each M to N pair, the closest distance between any member of M with any member of N, the pair of models which actually had that closest approach, and whether or not this  atom was included in the common core calculated for the ensemble, as well as the Global Silhouette score for each atom.
 
 'eeLocal\_out.tsv':
 ---------------------------------------
       
-      This tab-separated table contains information about the LODR calculated for each residue. The columns list from left to right: the residue id, the RMS of the LODR calculated for each pair of structures in group M, the same for group N, the same for each M to N pair, the minimum LODR for any member of M compared with any member of N, and which pair was that closest.
+      This tab-separated table contains information about the LODR calculated for each residue. The columns list from left to right: the residue id, the RMS of the LODR calculated for each pair of structures in group M, the same for group N, the same for each M to N pair, the minimum LODR for any member of M compared with any member of N, and which pair was that closest, as well as the LODR silhouette score.
       
 'sil_scores.tsv':
 ---------------------------------------
