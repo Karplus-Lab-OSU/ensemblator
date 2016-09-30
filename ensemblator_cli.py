@@ -1939,7 +1939,127 @@ elif options.prepare == True and options.analyze == False:
 
         io = PDBIO()
         pdb_reader = PDBParser(PERMISSIVE=1, QUIET=True)
+        
+        
+        # do an initial alignment to remove the really bad files        
+        print ("\n\nDoing initial MUSCLE alignment to remove very low"
+                " identity sequences (<20%):\n\n")
+        align_counter = 1
+        while align_counter != 0:
+            # get all the sequences for the pdb files
+            seqs = open("sequences.fasta", "w")
+            for pdb in good_files:
+                structure = pdb_reader.get_structure("temp", pdb)
 
+                seq = ""
+                for residue in structure[0]["A"]:
+                    try:
+                        seq = seq + str(to_single(residue.get_resname()))
+                    except:
+                        # it's probably DNA or RNA rather than protein
+                        if residue.get_resname() in ['A','C','T','G']:
+                            seq = seq + str(residue.get_resname())
+                        else:
+                            seq = seq + "X"
+                seqs.write(">" + str(pdb) + "\n" + str(seq) + "\n")
+            seqs.close()
+
+            # command line args for MUSCLE
+            cline = MuscleCommandline(input="sequences.fasta",
+                                      out="muscle_align.fasta")
+            log_str = "\n##################\n\n" + \
+                      "Running MUSCLE alignment program with the following " +\
+                      "command: \n" + str(cline) +\
+                      "\n\n##################\n"
+            print log_str
+            log.write(log_str)
+
+            # RUN MUCSLE
+            stdout, stderr = cline()
+            os.remove("sequences.fasta")
+
+            aligned_dict = {}
+
+            aligned_file = open("muscle_align.fasta", "rU")
+            # fill a dictionary with just the filenames and the aligned sequences
+            for element in SeqIO.parse(aligned_file, "fasta"):
+                aligned_dict[element.id] = str(element.seq)
+            aligned_file.close()
+
+            # ensure that the seq id is close enough to use
+            # if a model is defined
+
+            template = []
+            try:
+                template.extend((options.template).split(","))
+            except:
+                sys.exit("Template must be formated like so:"
+                         " '-chain filename.pdb,chain,model' e.g. "
+                         " '-chain 1q4k.pdb,A,2' or '-chain 1q4k.pdb,A'.")
+
+            try:
+                try:
+                    template_name = "prepped_" + \
+                                    os.path.basename(template[0])\
+                                        [0:(len(os.path.basename(template[0])) - 4)] + \
+                                    "_model_" + \
+                                    str(template[2]) + \
+                                    "_chain_" + \
+                                    str(template[1]) + \
+                                    "_alt_A.pdb"
+                # otherwise just use zero
+                except:
+                    template_name = "prepped_" + \
+                                    os.path.basename(template[0])\
+                                        [0:(len(os.path.basename(template[0])) - 4)] + \
+                                    "_model_0" + \
+                                    "_chain_" + \
+                                    str(template[1]) + \
+                                    "_alt_A.pdb"
+            except:
+                sys.exit("Template must be formated like so:"
+                         " '-chain filename.pdb,chain,model' e.g. "
+                         " '-chain 1q4k.pdb,A,2' or '-chain 1q4k.pdb,A'.")
+
+            #empty the good_files list, to refill with the newly good files
+            # ie the files with a certain percent id
+            good_files = []
+            align_counter = 0
+            for key in aligned_dict:
+                try:
+                    template = aligned_dict[template_name]
+                except:
+                    sys.exit(
+                        "Couldn't load template file, probably it was removed"
+                        " after backbone scanning. Try running with the"
+                        " --permissive option on, or pick a different "
+                        "template.")
+                tester = aligned_dict[key]
+                #calculate percent id
+                matches = 0.0
+                for pos in range(0, (len(template))):
+                    if tester[pos] == template[pos]:
+                        matches += 1.0
+                percent_id = matches / float(len(template))
+                percent = 20.0
+                # if the user entered a fraction or a percent, use a fraction
+                if percent > 1.0:
+                    percent = percent / 100.0
+                # keep the file if it's good
+                if percent_id >= percent:
+                    good_files.append(key)
+                else:
+                    message = "Removing file: " + \
+                              key + \
+                              " due to having less than " + \
+                              str(percent * 100) + "%" +\
+                              " identity to the template."
+                    print message
+                    log.write(message + "\n")
+                    # we removed files, so redo the alignmnet
+                    align_counter += 1
+        
+        # do muscle alignments to user specified percent identity cutoff
         align_counter = 1
         while align_counter != 0:
             # get all the sequences for the pdb files
