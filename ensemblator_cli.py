@@ -1954,7 +1954,7 @@ elif options.prepare == True and options.analyze == False:
         sim = sim_matrix.blosum62
                 
         # do an initial alignment to remove the really bad files        
-        print ("\n\nRamping up MUSCLE specificity.\n\n")
+        print ("\n\nRamping up MUSCLE cutoff specificity.\n\n")
         
         percent = 0.1
         user_percent = options.percent
@@ -2088,6 +2088,11 @@ elif options.prepare == True and options.analyze == False:
         
         # do muscle alignments to user specified percent identity cutoff
         align_counter = 1
+        percent = options.percent
+        # if the user entered a fraction or a percent, use a fraction
+        if percent > 1.0:
+            percent = percent / 100.0
+            
         while align_counter != 0:
             # get all the sequences for the pdb files
             seqs = open("sequences.fasta", "w")
@@ -2193,14 +2198,9 @@ elif options.prepare == True and options.analyze == False:
                     else:
                         matches += get_score(tester[pos], template[pos], sim)
                         self_matches += get_score(template[pos], template[pos], sim)
-                percent_id = matches / self_matches
-                                
+                percent_id = matches / self_matches                
                 
                 
-                percent = options.percent
-                # if the user entered a fraction or a percent, use a fraction
-                if percent > 1.0:
-                    percent = percent / 100.0
                 # keep the file if it's good
                 if percent_id >= percent:
                     good_files.append(key)
