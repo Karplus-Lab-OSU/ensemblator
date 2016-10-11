@@ -3072,7 +3072,7 @@ def analyze(options):
                    ncol=2,
                    mode="expand",
                    borderaxespad=0.)
-        plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
+        #plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
         ax = plt.gca() 
         ax.xaxis.set_minor_locator(minorLocator)
         ax.xaxis.set_major_locator(majorLocator)
@@ -4143,7 +4143,7 @@ def analyze(options):
                        ncol=2,
                        mode="expand",
                        borderaxespad=0.)
-            plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
+            #plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
             ax.xaxis.set_major_locator(majorLocator)

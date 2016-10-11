@@ -3166,7 +3166,7 @@ elif options.analyze == True and options.prepare == False:
                    ncol=2,
                    mode="expand",
                    borderaxespad=0.)
-        plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
+        #plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
         ax.xaxis.set_major_locator(majorLocator)
@@ -4238,7 +4238,7 @@ elif options.analyze == True and options.prepare == False:
                        ncol=2,
                        mode="expand",
                        borderaxespad=0.)
-            plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
+            #plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
             ax.xaxis.set_major_locator(majorLocator)
