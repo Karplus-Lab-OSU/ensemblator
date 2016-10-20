@@ -25,6 +25,12 @@ import random
 from scipy.cluster.vq import kmeans, vq
 from sklearn.cluster import AgglomerativeClustering
 from scipy.cluster.hierarchy import dendrogram, linkage
+from matplotlib.ticker import FormatStrFormatter
+from Bio.PDB import *
+from Bio.Align.Applications import MuscleCommandline
+from Bio import SeqIO
+import Bio.SubsMat.MatrixInfo as sim_matrix
+
 
 # get the score from the similarity matrix
 def get_score(a,b,sim):
@@ -1940,12 +1946,7 @@ elif options.prepare == True and options.analyze == False:
                  " ensemble.")
 
     # run this before eePrep in order to ensure that the files are good for prep
-    if options.align == True:
-
-        from Bio.PDB import *
-        from Bio.Align.Applications import MuscleCommandline
-        from Bio import SeqIO
-        import Bio.SubsMat.MatrixInfo as sim_matrix
+    if options.align == True:      
 
         io = PDBIO()
         pdb_reader = PDBParser(PERMISSIVE=1, QUIET=True)
@@ -3034,6 +3035,7 @@ elif options.analyze == True and options.prepare == False:
                     mean_sil[resid] = (backbone_sil[resid] + eelocal_dict["lodr_sil"][resid]) / 2
                 except:
                     mean_sil[resid] = None
+            total_median_sil = np.median([x for x in mean_sil.values() if x is not None])
         except:
             pass
             
@@ -3166,13 +3168,15 @@ elif options.analyze == True and options.prepare == False:
                    ncol=2,
                    mode="expand",
                    borderaxespad=0.)
-        #plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
+        plt.axhline(y = total_median_sil, linewidth=1.5, color = "black")
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
         ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
-        plt.ylim([0,1])
+        plt.yticks(list(plt.yticks()[0]) + [total_median_sil])
+        plt.ylim([0,np.max(list(plt.yticks()[0]))])
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2g'))
         fig = plt.gcf()
         fig.canvas.set_window_title(title)
         plt.savefig(title + ".svg", bbox_inches='tight')
@@ -4051,6 +4055,7 @@ elif options.analyze == True and options.prepare == False:
                         mean_sil[resid] = (backbone_sil[resid] + eelocal_dict["lodr_sil"][resid]) / 2
                     except:
                         mean_sil[resid] = None
+                total_median_sil = np.median([x for x in mean_sil.values() if x is not None])
             except:
                 pass
             
@@ -4238,13 +4243,15 @@ elif options.analyze == True and options.prepare == False:
                        ncol=2,
                        mode="expand",
                        borderaxespad=0.)
-            #plt.axhspan(0.35, 0.65, facecolor='0.5', alpha=0.5)
+            plt.axhline(y = total_median_sil, linewidth=1.5, color = "black")
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
             ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
-            plt.ylim([0,1])
+            plt.yticks(list(plt.yticks()[0]) + [total_median_sil])
+            plt.ylim([0,np.max(list(plt.yticks()[0]))])
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.2g'))
             fig = plt.gcf()
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".svg", bbox_inches='tight')
