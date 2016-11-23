@@ -34,6 +34,7 @@ from Bio.Align.Applications import MuscleCommandline
 from Bio import SeqIO
 import Bio.SubsMat.MatrixInfo as sim_matrix
 from matplotlib.ticker import FormatStrFormatter
+from sklearn.manifold import TSNE
 
 os.path.realpath(os.path.dirname(sys.argv[0]))
 
@@ -4188,7 +4189,48 @@ def analyze(options):
         plt.ylabel("Estimated Distance")       
         plt.savefig(title + ".svg", bbox_inches='tight')
 
-
+        
+        
+        
+        print "Plotting t-SNE dimensionality reduction:"
+        ##### TSNE cooccurance matrix PLOT
+        title = "TSNE_cooccur_dcut=" + str(dcut)
+        plt.figure()
+        #init the tsne
+        tsne = TSNE(n_components=2, 
+                    perplexity=20,
+                    early_exaggeration=4.0,
+                    learning_rate=200,
+                    n_iter=1000,
+                    n_iter_without_progress=50,
+                    min_grad_norm=0,
+                    init='pca',
+                    method='exact',
+                    verbose=0)
+        # run tsne on X, which is the cooccurance matrix generated earlier
+        reduced = tsne.fit_transform(X)
+        #begin plotting, using the tsne coords in 2d
+        plt.scatter(reduced[:,0], 
+                    reduced[:,1], 
+                    50, 
+                    labels_best, 
+                    #edgecolors = 'none',
+                    # use the colors from colorbrewer set1
+                    cmap = plt.get_cmap('Set1'))
+        # code to label each point with the Model ID rather than the cluster ID   
+        for label, x, y in zip(range(len(labels_best)), reduced[:, 0], reduced[:, 1]):
+            plt.annotate(label, 
+                         xy = (x, y), 
+                         xytext = (-2, 2),
+                         textcoords = 'offset points', 
+                         ha = 'right', 
+                         va = 'bottom')
+        #should show which color is which group
+        plt.colorbar()
+        # get rid of axis, which is an estimate and should not be taken as gospel
+        plt.axis('off')
+        plt.savefig(title + ".svg", bbox_inches='tight')
+        print "Done."
 
             
         # now need to sort the groups legend so that it is human readable
