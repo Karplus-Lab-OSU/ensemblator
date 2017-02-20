@@ -484,34 +484,34 @@ def grouped(iterable, n):
 #### Functions ####
 ################################################################################
 
-# function to get silhouette-like scores
-def get_sil(intram_dist_dict, intran_dist_dict, inter_dist_dict):
-    sil_dict = {}
+# function to get Discrimination scores
+def get_discrimination(intram_dist_dict, intran_dist_dict, inter_dist_dict):
+    disc_dict = {}
 
     for atom in intram_dist_dict:
         try:
 
-            # get group M sil
+            # get group M disc
             ai = np.mean(intram_dist_dict[atom])
             bi = np.mean(inter_dist_dict[atom])
 
-            sili_m = (bi - ai) / np.max([bi, ai])
+            disc_m = (bi - ai) / np.max([bi, ai])
 
-            # get group N sil
+            # get group N disc
             ai = np.mean(intran_dist_dict[atom])
             bi = np.mean(inter_dist_dict[atom])
 
-            sili_n = (bi - ai) / np.max([bi, ai])
+            disc_n = (bi - ai) / np.max([bi, ai])
 
             # get mean
-            sili = (sili_m + sili_n) / 2
-            sil_dict[atom] = sili
+            disc = (disc_m + disc_n) / 2
+            disc_dict[atom] = disc
 
 
         except:
-            sil_dict[atom] = None
+            disc_dict[atom] = None
 
-    return sil_dict
+    return disc_dict
 
 
 def aligner(pdb):
@@ -2648,9 +2648,9 @@ def analyze(options):
             pass
 
         try:
-            # calulate silhouette score
-            print "Calculating Global Silhoutte Scores:"
-            sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
+            # calulate Discrimination Scores
+            print "Calculating Global Discrimination Scores:"
+            disc = get_discrimination(m_dist_dict, n_dist_dict, inter_dist_dict)
         except:
             pass
 
@@ -2691,10 +2691,10 @@ def analyze(options):
 
             try:
                 eeglobal_dict \
-                    ["sil"] \
+                    ["disc"] \
                     [resid] \
                     [atomid] \
-                    = sil[key]
+                    = disc[key]
             except:
                 pass
                 # sort them for nicer output
@@ -2778,10 +2778,10 @@ def analyze(options):
             minimum_lodr = minimum_lodr_info["min"]
         except:
             pass
-        # calulate LODR_sil
+        # calulate LODR_disc
         try:
-            print "Calculating LODR silhouette scores:"
-            lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
+            print "Calculating LODR Discrimination scores:"
+            lodr_disc = get_discrimination(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
         except:
             pass
 
@@ -2811,9 +2811,9 @@ def analyze(options):
                         [resid] \
                         = str(inter_list[minimum_lodr_index[resid]])
                     eelocal_dict \
-                        ["lodr_sil"] \
+                        ["lodr_disc"] \
                         [resid] \
-                        = lodr_sil[resid]
+                        = lodr_disc[resid]
                 except:
                     pass
             except:
@@ -2840,7 +2840,7 @@ def analyze(options):
                            "\t" +
                            "closest_approach_pair" +
                            "\t" +
-                           "silhouette" +
+                           "discrimination" +
                            "\t" +
                            "included_in_core" +
                            "\n"
@@ -2889,7 +2889,7 @@ def analyze(options):
                                                    ) +
                                                "\t" +
                                                str(eeglobal_dict \
-                                                       ["sil"] \
+                                                       ["disc"] \
                                                        [resid] \
                                                        [atomid]
                                                    ) +
@@ -2927,7 +2927,7 @@ def analyze(options):
                                                    ) +
                                                "\t" +
                                                str(eeglobal_dict \
-                                                       ["sil"] \
+                                                       ["disc"] \
                                                        [resid] \
                                                        [atomid]
                                                    ) +
@@ -3008,7 +3008,7 @@ def analyze(options):
                           "\t"
                           "mimimum_lodr_pair"
                           "\t"
-                          "lodr_silhouette"
+                          "lodr_discrimination"
                           "\n"
                           )
         for resid in resid_list:
@@ -3032,7 +3032,7 @@ def analyze(options):
                                       ) +
                                   "\t" +
                                   str(eelocal_dict \
-                                          ["lodr_sil"] \
+                                          ["lodr_disc"] \
                                           [resid]
                                       ) +
                                   "\n"
@@ -3137,7 +3137,7 @@ def analyze(options):
             pass
 
         try:
-            backbone_sil = {}
+            backbone_disc = {}
             for resid in range(min(resid_list), (max(resid_list) + 1)):
                 rmsds = []
                 for atomid in atomid_list:
@@ -3146,25 +3146,25 @@ def analyze(options):
                                     atomid == "C" or \
                                     atomid == "O":
                         rmsds.append(eeglobal_dict \
-                                         ["sil"] \
+                                         ["disc"] \
                                          [resid] \
                                          [atomid]
                                      )
                 try:
-                    backbone_sil[resid] = np.mean(rmsds)
+                    backbone_disc[resid] = np.mean(rmsds)
                 except:
-                    backbone_sil[resid] = None
+                    backbone_disc[resid] = None
         except:
             pass
 
         try:
-            mean_sil = {}
+            mean_disc = {}
             for resid in range(min(resid_list), (max(resid_list) + 1)):
                 try:
-                    mean_sil[resid] = (backbone_sil[resid] + eelocal_dict["lodr_sil"][resid]) / 2
+                    mean_disc[resid] = (backbone_disc[resid] + eelocal_dict["lodr_disc"][resid]) / 2
                 except:
-                    mean_sil[resid] = None
-            total_median_sil = np.median([x for x in mean_sil.values() if x is not None])
+                    mean_disc[resid] = None
+            total_median_disc = np.median([x for x in mean_disc.values() if x is not None])
         except:
             pass
 
@@ -3267,57 +3267,57 @@ def analyze(options):
         plt.close()
         print "eeLocal plot saved as '" + title + ".svg'."
 
-        #### Silhouette plot!
-        title = "Silhouette Scores"
+        #### Discrimination plot!
+        title = "Discrimination Scores"
         plt.figure()
         try:
-            plt.plot(backbone_sil.keys(),
-                     backbone_sil.values(),
+            plt.plot(backbone_disc.keys(),
+                     backbone_disc.values(),
                      blue,
                      alpha=0.4,
-                     label="Global Silhouette Score",
+                     label="Global Discrimination Score",
                      linewidth=1.5)
         except:
             pass
         try:
-            plt.plot(eelocal_dict["lodr_sil"].keys(),
-                     eelocal_dict["lodr_sil"].values(),
+            plt.plot(eelocal_dict["lodr_disc"].keys(),
+                     eelocal_dict["lodr_disc"].values(),
                      green,
                      alpha=0.4,
-                     label="LODR Silhouette Score",
+                     label="LODR Discrimination Score",
                      linewidth=1.5)
         except:
             pass
         try:
-            plt.plot(mean_sil.keys(),
-                     mean_sil.values(),
+            plt.plot(mean_disc.keys(),
+                     mean_disc.values(),
                      red,
-                     label="Mean Silhouette Score",
+                     label="Mean Discrimination Score",
                      linewidth=1.5)
         except:
             pass
 
         plt.xlabel("Residue Number")
-        plt.ylabel("Backbone Silhouette Score")
+        plt.ylabel("Backbone Discrimination Score")
         plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
                    loc=3,
                    ncol=2,
                    mode="expand",
                    borderaxespad=0.)
-        plt.axhline(y=total_median_sil, linewidth=1.5, color="black")
+        plt.axhline(y=total_median_disc, linewidth=1.5, color="black")
         ax = plt.gca()
         ax.xaxis.set_minor_locator(minorLocator)
         ax.xaxis.set_major_locator(majorLocator)
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
-        plt.yticks(list(plt.yticks()[0]) + [total_median_sil])
+        plt.yticks(list(plt.yticks()[0]) + [total_median_disc])
         plt.ylim([0, np.max(list(plt.yticks()[0]))])
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.2g'))
         fig = plt.gcf()
         fig.canvas.set_window_title(title)
         plt.savefig(title + ".svg", bbox_inches='tight')
         plt.close()
-        print "Silhouette Score plot saved as '" + title + ".svg'."
+        print "Discrimination Score plot saved as '" + title + ".svg'."
 
         # this will set the b-factors in the final overlay to be the
         # value of the inter_group b factor. Can be nice for visualizing
@@ -3653,9 +3653,9 @@ def analyze(options):
             except:
                 pass
             try:
-                # calulate silhouette score
-                print "Calculating Global Silhoutte Scores:"
-                sil = get_sil(m_dist_dict, n_dist_dict, inter_dist_dict)
+                # calulate discrimination score
+                print "Calculating Global Discrimination Scores:"
+                disc = get_discrimination(m_dist_dict, n_dist_dict, inter_dist_dict)
             except:
                 pass
 
@@ -3704,10 +3704,10 @@ def analyze(options):
 
                 try:
                     eeglobal_dict \
-                        ["sil"] \
+                        ["disc"] \
                         [resid] \
                         [atomid] \
-                        = sil[key]
+                        = disc[key]
                 except:
                     pass
 
@@ -3791,10 +3791,10 @@ def analyze(options):
                 minimum_lodr = minimum_lodr_info["min"]
             except:
                 pass
-            # calulate LODR_sil
+            # calulate LODR_disc
             try:
-                print "Calculating LODR silhouette scores:"
-                lodr_sil = get_sil(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
+                print "Calculating LODR Discrimination scores:"
+                lodr_disc = get_discrimination(m_lodr_dict, n_lodr_dict, inter_lodr_dict)
             except:
                 pass
 
@@ -3818,9 +3818,9 @@ def analyze(options):
 
                     try:
                         eelocal_dict \
-                            ["lodr_sil"] \
+                            ["lodr_disc"] \
                             [resid] \
-                            = lodr_sil[resid]
+                            = lodr_disc[resid]
                     except:
                         pass
 
@@ -3862,7 +3862,7 @@ def analyze(options):
                                "\t"
                                "closest_approach_pair"
                                "\t"
-                               "silhouette"
+                               "discrimination"
                                "\t"
                                "included_in_core"
                                "\n"
@@ -3907,7 +3907,7 @@ def analyze(options):
                                                        ) +
                                                    "\t" +
                                                    str(eeglobal_dict \
-                                                           ["sil"] \
+                                                           ["disc"] \
                                                            [resid] \
                                                            [atomid]
                                                        ) +
@@ -3951,7 +3951,7 @@ def analyze(options):
                                                        ) +
                                                    "\t" +
                                                    str(eeglobal_dict \
-                                                           ["sil"] \
+                                                           ["disc"] \
                                                            [resid] \
                                                            [atomid]
                                                        ) +
@@ -4026,7 +4026,7 @@ def analyze(options):
                               "\t"
                               "mimimum_lodr_pair"
                               "\t"
-                              "lodr_silhouette"
+                              "lodr_discrimination"
                               "\n"
                               )
 
@@ -4060,7 +4060,7 @@ def analyze(options):
                                           ) +
                                       "\t" +
                                       str(eelocal_dict \
-                                              ["lodr_sil"] \
+                                              ["lodr_disc"] \
                                               [resid]
                                           ) +
                                       "\n"
@@ -4173,7 +4173,7 @@ def analyze(options):
                 pass
 
             try:
-                backbone_sil = {}
+                backbone_disc = {}
                 for resid in range(min(resid_list), (max(resid_list) + 1)):
                     rmsds = []
                     for atomid in atomid_list:
@@ -4182,24 +4182,24 @@ def analyze(options):
                                         atomid == "C" or \
                                         atomid == "O":
                             rmsds.append(eeglobal_dict \
-                                             ["sil"] \
+                                             ["disc"] \
                                              [resid] \
                                              [atomid]
                                          )
                     try:
-                        backbone_sil[resid] = np.mean(rmsds)
+                        backbone_disc[resid] = np.mean(rmsds)
                     except:
-                        backbone_sil[resid] = None
+                        backbone_disc[resid] = None
             except:
                 pass
             try:
-                mean_sil = {}
+                mean_disc = {}
                 for resid in range(min(resid_list), (max(resid_list) + 1)):
                     try:
-                        mean_sil[resid] = (backbone_sil[resid] + eelocal_dict["lodr_sil"][resid]) / 2
+                        mean_disc[resid] = (backbone_disc[resid] + eelocal_dict["lodr_disc"][resid]) / 2
                     except:
-                        mean_sil[resid] = None
-                total_median_sil = np.median([x for x in mean_sil.values() if x is not None])
+                        mean_disc[resid] = None
+                total_median_disc = np.median([x for x in mean_disc.values() if x is not None])
             except:
                 pass
             title = "eeGLOBAL_dcut=" + str(dcut) + outputname
@@ -4312,57 +4312,57 @@ def analyze(options):
             plt.close()
             print "eeLocal plot saved as '" + title + ".svg'."
 
-            #### Silhouette plot!
-            title = "SILHOUETTE_dcut=" + str(dcut) + outputname
+            #### Discrimination plot!
+            title = "Discrimination_dcut=" + str(dcut) + outputname
             plt.figure()
             try:
-                plt.plot(backbone_sil.keys(),
-                         backbone_sil.values(),
+                plt.plot(backbone_disc.keys(),
+                         backbone_disc.values(),
                          blue,
                          alpha=0.4,
-                         label="Global Silhouette Score",
+                         label="Global Discrimination Score",
                          linewidth=1.5)
             except:
                 pass
             try:
-                plt.plot(eelocal_dict["lodr_sil"].keys(),
-                         eelocal_dict["lodr_sil"].values(),
+                plt.plot(eelocal_dict["lodr_disc"].keys(),
+                         eelocal_dict["lodr_disc"].values(),
                          green,
                          alpha=0.4,
-                         label="LODR Silhouette Score",
+                         label="LODR Discrimination Score",
                          linewidth=1.5)
             except:
                 pass
             try:
-                plt.plot(mean_sil.keys(),
-                         mean_sil.values(),
+                plt.plot(mean_disc.keys(),
+                         mean_disc.values(),
                          red,
-                         label="Mean Silhouette Score",
+                         label="Mean Discrimination Score",
                          linewidth=1.5)
             except:
                 pass
 
             plt.xlabel("Residue Number")
-            plt.ylabel("Backbone Silhouette Score")
+            plt.ylabel("Backbone Discrimination Score")
             plt.legend(bbox_to_anchor=(0., 1.02, 1., .102),
                        loc=3,
                        ncol=2,
                        mode="expand",
                        borderaxespad=0.)
-            plt.axhline(y=total_median_sil, linewidth=1.5, color="black")
+            plt.axhline(y=total_median_disc, linewidth=1.5, color="black")
             ax = plt.gca()
             ax.xaxis.set_minor_locator(minorLocator)
             ax.xaxis.set_major_locator(majorLocator)
             ax.xaxis.set_ticks_position('bottom')
             ax.yaxis.set_ticks_position('left')
-            plt.yticks(list(plt.yticks()[0]) + [total_median_sil])
+            plt.yticks(list(plt.yticks()[0]) + [total_median_disc])
             plt.ylim([0, np.max(list(plt.yticks()[0]))])
             ax.yaxis.set_major_formatter(FormatStrFormatter('%.2g'))
             fig = plt.gcf()
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print "Silhouette Score plot saved as '" + title + ".svg'."
+            print "Discrimination Score plot saved as '" + title + ".svg'."
 
         #### DENDROGRAM PLOT
         title = "Dendrogram_dcut=" + str(dcut)
