@@ -80,7 +80,7 @@ parser.add_option("--align",
                   action="store_true",
                   dest="align",
                   default=False,
-                  help="If set, will performa a sequence alignment first,"
+                  help="If set, will perform a sequence alignment first,"
                        " and use those residue numbers to create a better result.")
 parser.add_option("-c",
                   "--chain",
@@ -105,6 +105,13 @@ parser.add_option("-d",
                   type='float',
                   default=2.5,
                   help="Distance cutoff for core decision.")
+parser.add_option("--auto_cutoff",
+                  dest="dcutAuto",
+                  action="store_true",
+                  default=False,
+                  help="If set, will perform try to automatically detect a"
+                       " distance cutoff that will result in a core with"
+                       " between 20% and 40% of the total atoms.")
 parser.add_option(
     "--auto",
     action="store_true",

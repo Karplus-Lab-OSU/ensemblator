@@ -512,15 +512,16 @@ class Prepare:
                   )
 
 
-
-
 class Analyze:
+
     def __init__(self, utility):
-        self.utility = utility;
-        self.rootWindow = Tk();
-        self.rootWindow.wm_title("Analyze Ensemble");
-        self.dcut = StringVar(self.rootWindow);
-        self.dcut.set("2.5");
+        self.utility = utility
+        self.rootWindow = Tk()
+        self.rootWindow.wm_title("Analyze Ensemble")
+        self.dcut = StringVar(self.rootWindow)
+        self.dcut.set("2.5")
+        self.dcutAuto = IntVar(self.rootWindow)
+        self.dcutAuto.set(0)
         self.ensemble = ""
         self.groupm = StringVar(self.rootWindow)
         self.groupm.set("")
@@ -532,12 +533,11 @@ class Analyze:
         self.auto.set(0)
         self.color = IntVar(self.rootWindow)
         self.color.set(0)
-        self.dir_to_save = "";
-        self.setup_gui();
-        self.rootWindow.mainloop();
+        self.dir_to_save = ""
+        self.setup_gui()
+        self.rootWindow.mainloop()
 
     def setup_gui(self):
-
 
         pwd_button = Button(self.rootWindow,
                             text = "Select Working Directory",
@@ -596,32 +596,44 @@ class Analyze:
 
 
         dcut_label = Label(self.rootWindow,
-                             text = "Cutoff distance for core atoms: "
+                             text = "Core cutoff distance: "
                              )
-        dcut_label.grid(row = 4,
+        dcut_label.grid(row = 5,
                           column = 0,
                           sticky = W
                           )
-        dcut = Entry(self.rootWindow,
+        self.dcut_entry = Entry(self.rootWindow,
                        textvariable = self.dcut
                        )
-        dcut.grid(row = 4,
+        self.dcut_entry.grid(row = 5,
                     column = 1,
                     sticky=W
                     )
+
+        dcut_auto_checkbutton = Checkbutton(self.rootWindow,
+                                       text="Automatic Cutoff Distance Search",
+                                       variable=self.dcutAuto,
+                                       command=self.dcut_auto_check
+                                       )
+        dcut_auto_checkbutton.grid(row=4,
+                              column=0,
+                              columnspan=2,
+                              sticky=E
+                              )
+
 
 
         groupm_label = Label(self.rootWindow,
                                 text = "Group M models: "
                                 )
-        groupm_label.grid(row = 5,
+        groupm_label.grid(row = 6,
                              column = 0,
                              sticky = W
                              )
         self.groupm_entry = Entry(self.rootWindow,
                                      textvariable = self.groupm
                                      )
-        self.groupm_entry.grid(row = 5,
+        self.groupm_entry.grid(row = 6,
                                   column = 1,
                                   sticky=W
                                   )
@@ -630,7 +642,7 @@ class Analyze:
         groupn_label = Label(self.rootWindow,
                                 text = "Group N models: "
                                 )
-        groupn_label.grid(row = 6,
+        groupn_label.grid(row = 7,
                              column = 0,
                              sticky = W
                              )
@@ -638,7 +650,7 @@ class Analyze:
                                  text = "0",
                                  textvariable = self.groupn
                                      )
-        self.groupn_entry.grid(row = 6,
+        self.groupn_entry.grid(row = 7,
                                   column = 1,
                                   sticky=W
                                   )
@@ -653,7 +665,7 @@ class Analyze:
                                         variable = self.auto,
                                         command = self.auto_check
                                         )
-        auto_checkbutton.grid(row = 7,
+        auto_checkbutton.grid(row = 8,
                                column = 0,
                                columnspan = 2,
                                sticky = W
@@ -717,6 +729,14 @@ class Analyze:
             self.groupm_entry.configure(state = 'normal')
             self.groupn_entry.configure(state = 'normal')
             self.maxclust_entry.configure(state='disable')
+
+
+    def dcut_auto_check(self):
+        if self.dcutAuto.get() == 1:
+            self.dcut_entry.configure(state = 'disable')
+        else:
+            self.dcut_entry.configure(state = 'normal')
+
 
     def select_ensemble(self):
         self.status["text"] = "Waiting";

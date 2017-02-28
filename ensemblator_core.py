@@ -2442,6 +2442,7 @@ def analyze(options):
     global dcut
     dcut = options.dcut
 
+
     pdb_reader = PDBParser(PERMISSIVE=1, QUIET=True)
     outputname = "global_overlay_" + str(dcut) + ".pdb"
     # use this in the auto analysis, cluster_sep - this is a lazy solution
@@ -2453,125 +2454,374 @@ def analyze(options):
     global structure
     structure = pdb_reader.get_structure("temp", pdb)
 
-    print("Iterativly aligning pairwise structures until convergence of cutoff "
-          "accepted atoms is reached..."
-          )
+    # do the dcut check if not an automatic search
+    if options.dcutAuto == 0:
 
-    # first output file, contains info about all the pairs. Used for clustering
-    # in the --auto analysis
-    pairwise_file = open("pairwise_analysis.tsv", 'w')
-    pairwise_file.write("model_X\tmodel_Y\tcore_percent\trmsd_non_core\trmsd_core\tdis_score\n")
+        print("Iterativly aligning pairwise structures until convergence of cutoff "
+              "accepted atoms is reached..."
+              )
 
-    # take each pairwise alignment and realign until dcut satisfied atoms converge
+        # first output file, contains info about all the pairs. Used for clustering
+        # in the --auto analysis
+        pairwise_file = open("pairwise_analysis.tsv", 'w')
+        pairwise_file.write("model_X\tmodel_Y\tcore_percent\trmsd_non_core\trmsd_core\tdis_score\n")
 
-    # get the list of models to generate the pairs
-    model_list = list()
-    for model in structure:
-        model_list.append(model.id)
+        # take each pairwise alignment and realign until dcut satisfied atoms converge
 
-    atoms_to_ignore = {}
-    # list of all pairs
-    pairwise_list = combinations(model_list, r=2)
-    # iterate accross each pair in order, ignoring duplicates and self pairs
-    # (they aren't in the pairwise list)
-    for x, y in pairwise_list:
-        # just any random starting condition. I don't think this is really needed
-        # but hey.
-        atoms = 1
-        atoms2 = 500
+        # get the list of models to generate the pairs
+        model_list = list()
+        for model in structure:
+            model_list.append(model.id)
+
+        atoms_to_ignore = {}
+        # list of all pairs
+        pairwise_list = combinations(model_list, r=2)
+        # iterate accross each pair in order, ignoring duplicates and self pairs
+        # (they aren't in the pairwise list)
+        for x, y in pairwise_list:
+            # just any random starting condition. I don't think this is really needed
+            # but hey.
+            atoms = 1
+            atoms2 = 500
+            counter = 0
+
+            # do first alignment of the pair, using all atoms
+            first_aligner(x, y)
+            # will realign over and over until the list of kept atoms are exactly
+            # identical before and after overlay
+            while atoms != atoms2:
+                counter += 1
+                # do first dcut check
+                atoms, all_atoms = dcut_atom_checker(x, y)
+                # here the key in atoms_to_ignore is a unique string for each pair,
+                atoms_to_ignore[str(x) + "," + str(y)] = atoms
+                if atoms == 0:
+                    # this would mean that the cutoff is too strict
+                    print "No atoms converge at cutoff."
+                    break
+                # re-align with only core atoms, giving the pairwise aligner the same
+                # list of atoms to ignore that is specific to this pair
+                pairwise_realigner(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+                # now the atoms that pass the check are here in atoms2, and if they
+                # aren't all identical to atoms, then the loop will repeat
+                atoms2, all_atoms = dcut_atom_checker(x, y)
+
+            # now that a convergent core is found, calculate the stats for this pair
+            rms_core = get_rms_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+            rms_non_core = get_rms_non_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+
+            core_percent = round((float(all_atoms) - float(len(atoms2))) / float(all_atoms), 3)
+            dis_score = round(math.pow(rms_core, core_percent) * \
+                              math.pow(rms_non_core, (1 - core_percent)), 3)
+
+            # output information to table, tab separated
+            pairwise_file.write(
+                str(x) +
+                "\t" +
+                str(y) +
+                "\t" +
+                str(core_percent) +
+                "\t" +
+                str(rms_non_core) +
+                "\t" +
+                str(rms_core) +
+                "\t" +
+                str(dis_score) +
+                "\n"
+            )
+
+        # self-self pairs, needed to get a complete array later
+        # all these stats should be zero
+        for modelid in model_list:
+            # include all self-self pairs in the output table to make matrix
+            # generation more complete if one desires
+            pairwise_file.write(
+                str(modelid) +
+                "\t" +
+                str(modelid) +
+                "\t" +
+                str(0) +
+                "\t" +
+                str(0) +
+                "\t" +
+                str(0) +
+                "\t" +
+                str(0) +
+                "\n"
+            )
+
+        # generate common-core aligned file
+        print("Identifying common convergant atoms in all pairwise structures, and "
+              "realigning original ensemble using only common cutoff accepted atoms..."
+              )
+        # get the common elements from the dict of all atoms to ignore from all
+        # structures
+        removal_list = atom_selector(atoms_to_ignore)
         counter = 0
-
-        # do first alignment of the pair, using all atoms
-        first_aligner(x, y)
-        # will realign over and over until the list of kept atoms are exactly
-        # identical before and after overlay
-        while atoms != atoms2:
+        for atom in removal_list:
             counter += 1
-            # do first dcut check
-            atoms, all_atoms = dcut_atom_checker(x, y)
-            # here the key in atoms_to_ignore is a unique string for each pair,
-            atoms_to_ignore[str(x) + "," + str(y)] = atoms
-            if atoms == 0:
-                # this would mean that the cutoff is too strict
-                print "No atoms converge at cutoff."
-                break
-            # re-align with only core atoms, giving the pairwise aligner the same
-            # list of atoms to ignore that is specific to this pair
-            pairwise_realigner(x, y, atoms_to_ignore[str(x) + "," + str(y)])
-            # now the atoms that pass the check are here in atoms2, and if they
-            # aren't all identical to atoms, then the loop will repeat
-            atoms2, all_atoms = dcut_atom_checker(x, y)
+        print(str(counter) +
+              " non-consensus atoms removed from final aligner process."
+              )
 
-        # now that a convergent core is found, calculate the stats for this pair
-        rms_core = get_rms_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
-        rms_non_core = get_rms_non_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+        # now re-align the original structure, against the first model, using only the
+        # COMMON core atoms atoms
+        # will be true if there are no common core atoms
+        error_check = final_aligner(outputname, removal_list)
 
-        core_percent = round((float(all_atoms) - float(len(atoms2))) / float(all_atoms), 3)
-        dis_score = round(math.pow(rms_core, core_percent) * \
-                          math.pow(rms_non_core, (1 - core_percent)), 3)
+        if error_check != True:
+            print("Wrote final overlay as: " + outputname)
 
-        # output information to table, tab separated
-        pairwise_file.write(
-            str(x) +
-            "\t" +
-            str(y) +
-            "\t" +
-            str(core_percent) +
-            "\t" +
-            str(rms_non_core) +
-            "\t" +
-            str(rms_core) +
-            "\t" +
-            str(dis_score) +
-            "\n"
-        )
+        print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
+              "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
+              )
+        pairwise_file.close()
 
-    # self-self pairs, needed to get a complete array later
-    # all these stats should be zero
-    for modelid in model_list:
-        # include all self-self pairs in the output table to make matrix
-        # generation more complete if one desires
-        pairwise_file.write(
-            str(modelid) +
-            "\t" +
-            str(modelid) +
-            "\t" +
-            str(0) +
-            "\t" +
-            str(0) +
-            "\t" +
-            str(0) +
-            "\t" +
-            str(0) +
-            "\n"
-        )
+    # perform a distance cutoff search
+    else:
 
-    # generate common-core aligned file
-    print("Identifying common convergant atoms in all pairwise structures, and "
-          "realigning original ensemble using only common cutoff accepted atoms..."
-          )
-    # get the common elements from the dict of all atoms to ignore from all
-    # structures
-    removal_list = atom_selector(atoms_to_ignore)
-    counter = 0
-    for atom in removal_list:
-        counter += 1
-    print(str(counter) +
-          " non-consensus atoms removed from final aligner process."
-          )
+        print("Beginning search for distance cutoff with a value of 2.5A.")
+        # initial core_percentage
+        common_core_percent = 0.0
+        #used to control sample size
+        improvement = 100.0
 
-    # now re-align the original structure, against the first model, using only the
-    # COMMON core atoms atoms
-    # will be true if there are no common core atoms
-    error_check = final_aligner(outputname, removal_list)
+        # get the list of models to generate the pairs
+        model_list = list()
+        for model in structure:
+            model_list.append(model.id)
 
-    if error_check != True:
-        print("Wrote final overlay as: " + outputname)
+        # begin search using 25% of the models
+        sampleSize = int(len(model_list) * 0.25)
+        # if the loop is farther from the target range, decrease the sample size
+        # if the loop is closer to the target range, increase the sample size
 
-    print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
-          "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
-          )
-    pairwise_file.close()
+
+
+        # loop until a good common core is identified with the sample selected, and the sample size is at least half the models
+        while (common_core_percent < 0.2 or common_core_percent > 0.4) or sampleSize <= int(len(model_list) * 0.5):
+
+            # don't let this value drop below 10
+            if sampleSize < 10:
+                sampleSize = 10
+
+            if len(model_list) > 10:
+                model_sample = np.random.choice(model_list, size=sampleSize, replace=False)
+            else:
+                model_sample = model_list
+                sampleSize = len(model_list)
+
+
+            atoms_to_ignore = {}
+            # list of all pairs
+            pairwise_list = combinations(model_sample, r=2)
+            # iterate accross each pair in order, ignoring duplicates and self pairs
+            # (they aren't in the pairwise list)
+
+            for x, y in pairwise_list:
+
+                # just any random starting condition. I don't think this is really needed
+                # but hey.
+                atoms = 1
+                atoms2 = 500
+                counter = 0
+                no_atoms = False
+
+                # do first alignment of the pair, using all atoms
+                first_aligner(x, y)
+                # will realign over and over until the list of kept atoms are exactly
+                # identical before and after overlay
+                while atoms != atoms2:
+                    no_atoms = False
+                    counter += 1
+                    # do first dcut check
+                    atoms, all_atoms = dcut_atom_checker(x, y)
+                    # here the key in atoms_to_ignore is a unique string for each pair,
+                    atoms_to_ignore[str(x) + "," + str(y)] = atoms
+
+                    if atoms == 0:
+                        # this would mean that the cutoff is too strict
+                        print "No atoms converge at cutoff of " + str(dcut) + " for model " + str(x) + " and " + str(y)
+                    # re-align with only core atoms, giving the pairwise aligner the same
+                    # list of atoms to ignore that is specific to this pair
+                    pairwise_realigner(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+                    # now the atoms that pass the check are here in atoms2, and if they
+                    # aren't all identical to atoms, then the loop will repeat
+                    atoms2, all_atoms = dcut_atom_checker(x, y)
+
+            # generate common-core aligned file
+            print("\n\n\nIdentifying common convergant atoms in sampled pairwise structures, and "
+                  "realigning original ensemble using only common cutoff accepted atoms..."
+                  )
+            # get the common elements from the dict of all atoms to ignore from all
+            # structures
+            removal_list = atom_selector(atoms_to_ignore)
+            counter = 0
+            for atom in removal_list:
+                counter += 1
+
+            oldImprovement = improvement
+            common_core_percent = round((float(all_atoms) - float(counter)) / float(all_atoms), 3)
+
+
+            print("Common core percent = " + str(common_core_percent * 100) + " at cutoff of " + str(dcut) + " A, "
+                  " using " + str(sampleSize) + " out of " + str(len(model_list)) + " models.")
+
+            if common_core_percent < 0.2:
+                dcut = dcut * 1.3
+                improvement = 0.2 - common_core_percent
+            elif common_core_percent > 0.4:
+                dcut = dcut * 0.7
+                improvement = common_core_percent - 0.4
+
+            actualImprovement = oldImprovement - improvement
+
+            if (common_core_percent > 0.2 and common_core_percent < 0.4) and sampleSize <= int(len(model_list) * 0.5):
+                # do it again with a half size sample
+                common_core_percent = 0.0
+                sampleSize = int(len(model_list) * 0.5)
+            elif actualImprovement < 0:
+                # new dcut is worse, lower the sample size
+                sampleSize = int(sampleSize * 0.8)
+            elif actualImprovement > 0:
+                # dcut was an improvement, use a larger sample size for next iteration
+                sampleSize = int(sampleSize * 1.2)
+
+
+
+        print("\n\nFinal cutoff of " + str(dcut) + " A accepted. Doing final overlay.")
+
+        outputname = "global_overlay_" + str(dcut) + ".pdb"
+        # use this in the auto analysis, cluster_sep - this is a lazy solution
+        outputname_all_overlay = "global_overlay_" + str(dcut) + ".pdb"
+
+        print("Iterativly aligning pairwise structures until convergence of cutoff "
+              "accepted atoms is reached..."
+              )
+
+        # first output file, contains info about all the pairs. Used for clustering
+        # in the --auto analysis
+        pairwise_file = open("pairwise_analysis.tsv", 'w')
+        pairwise_file.write("model_X\tmodel_Y\tcore_percent\trmsd_non_core\trmsd_core\tdis_score\n")
+
+        # take each pairwise alignment and realign until dcut satisfied atoms converge
+
+        # get the list of models to generate the pairs
+        model_list = list()
+        for model in structure:
+            model_list.append(model.id)
+
+        atoms_to_ignore = {}
+        # list of all pairs
+        pairwise_list = combinations(model_list, r=2)
+        # iterate accross each pair in order, ignoring duplicates and self pairs
+        # (they aren't in the pairwise list)
+        for x, y in pairwise_list:
+            # just any random starting condition. I don't think this is really needed
+            # but hey.
+            atoms = 1
+            atoms2 = 500
+            counter = 0
+
+            # do first alignment of the pair, using all atoms
+            first_aligner(x, y)
+            # will realign over and over until the list of kept atoms are exactly
+            # identical before and after overlay
+            while atoms != atoms2:
+                counter += 1
+                # do first dcut check
+                atoms, all_atoms = dcut_atom_checker(x, y)
+                # here the key in atoms_to_ignore is a unique string for each pair,
+                atoms_to_ignore[str(x) + "," + str(y)] = atoms
+                if atoms == 0:
+                    # this would mean that the cutoff is too strict
+                    print "No atoms converge at cutoff."
+                    break
+                # re-align with only core atoms, giving the pairwise aligner the same
+                # list of atoms to ignore that is specific to this pair
+                pairwise_realigner(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+                # now the atoms that pass the check are here in atoms2, and if they
+                # aren't all identical to atoms, then the loop will repeat
+                atoms2, all_atoms = dcut_atom_checker(x, y)
+
+            # now that a convergent core is found, calculate the stats for this pair
+            rms_core = get_rms_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+            rms_non_core = get_rms_non_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
+
+            core_percent = round((float(all_atoms) - float(len(atoms2))) / float(all_atoms), 3)
+            dis_score = round(math.pow(rms_core, core_percent) * \
+                              math.pow(rms_non_core, (1 - core_percent)), 3)
+
+            # output information to table, tab separated
+            pairwise_file.write(
+                str(x) +
+                "\t" +
+                str(y) +
+                "\t" +
+                str(core_percent) +
+                "\t" +
+                str(rms_non_core) +
+                "\t" +
+                str(rms_core) +
+                "\t" +
+                str(dis_score) +
+                "\n"
+            )
+
+        # self-self pairs, needed to get a complete array later
+        # all these stats should be zero
+        for modelid in model_list:
+            # include all self-self pairs in the output table to make matrix
+            # generation more complete if one desires
+            pairwise_file.write(
+                str(modelid) +
+                "\t" +
+                str(modelid) +
+                "\t" +
+                str(0) +
+                "\t" +
+                str(0) +
+                "\t" +
+                str(0) +
+                "\t" +
+                str(0) +
+                "\n"
+            )
+
+        # generate common-core aligned file
+        print("Identifying common convergant atoms in all pairwise structures, and "
+              "realigning original ensemble using only common cutoff accepted atoms..."
+              )
+        # get the common elements from the dict of all atoms to ignore from all
+        # structures
+        removal_list = atom_selector(atoms_to_ignore)
+        counter = 0
+        for atom in removal_list:
+            counter += 1
+        print(str(counter) +
+              " non-consensus atoms removed from final aligner process."
+              )
+
+        # now re-align the original structure, against the first model, using only the
+        # COMMON core atoms atoms
+        # will be true if there are no common core atoms
+        error_check = final_aligner(outputname, removal_list)
+
+        if error_check != True:
+            print("Wrote final overlay as: " + outputname)
+
+        print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
+              "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
+              )
+        pairwise_file.close()
+
+
+
+
+
+
+
+
 
     # this is all the eeGlobal and eeLocal stuff that will run if the m and n
     # group are set manually
