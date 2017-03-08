@@ -1729,7 +1729,7 @@ def final_aligner(outputname, atoms_to_ignore):
             if len(modeltag) == 9:
                 modeltag = "MODEL" + modeltag + "\n"
             # write model line
-            outfile.write(modeltag)
+            fileout.write(modeltag)
             counter += 1
         else:
             fileout.write(line)
@@ -3365,7 +3365,7 @@ def analyze(options):
                 try:
                     backbone_inter_rmsd[resid] = np.mean(rmsds)
                 except:
-                    backbone_inter_rms[resid] = None
+                    backbone_inter_rmsd[resid] = None
             backbone_closest = {}
             for resid in range(min(resid_list), (max(resid_list) + 1)):
                 rmsds = []
