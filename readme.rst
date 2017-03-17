@@ -167,6 +167,8 @@ Go!
 Analyzing your prepared ensemble:
 =================================
 
+.. image:: screenshots/analyze_ensemble.png
+
 
 Select Working Directory
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -183,8 +185,6 @@ Cutoff distance for core atoms
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     A value in Angstroms to use as a distance cutoff to define the common core of your ensemble. The default value for this calculation is 2.5. Choosing this value is important, and different cutoff values will often give different results. It is valuable to play around to determine what works best for your ensemble. Roughly, the same atom seen in two different models will be considered a 'core' atom, if it is within this cutoff distance. Otherwise, it will be excluded from the core.
-
-    A method for automatic determination of an optimal cutoff distance is also available. This setting (**--auto_cutoff** in the CLI, a **checkbox** in the GUI) will attempt to find a cutoff setting that will yield a final core containing 20-40% of the atoms in the ensemble. Generally this gives the best results, though once a good cutoff distance is known it is much faster to manually specify it each time.
 
 Group M models
 ^^^^^^^^^^^^^^
