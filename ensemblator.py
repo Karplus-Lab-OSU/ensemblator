@@ -765,7 +765,7 @@ class Analyze:
         # analyze arguments
         options.input = self.ensemble
         options.dcut = float(self.dcut.get())
-
+        options.dcutAuto = self.dcutAuto.get()
 
         options.auto = self.auto.get()
         if options.auto == 1:
