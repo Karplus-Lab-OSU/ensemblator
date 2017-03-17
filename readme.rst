@@ -167,11 +167,9 @@ Go!
 Analyzing your prepared ensemble:
 =================================
 
-.. image:: screenshots/analyze_ensemble.png
-
 
 Select Working Directory
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
     Used to select the directory in which all the intermediate files will be created (and deleted) as well as where the output files will be saved. If automatic clustering is used, the legends for the groups will be appended to 'models.tsv' if it is in this directory.
 
