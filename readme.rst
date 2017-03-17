@@ -2,7 +2,7 @@
 ENSEMBLATOR version 3
 #####################
 
-Andrew E. Brereton - Oregon State University - 2016
+Andrew E. Brereton - Oregon State University - 2017
 ###################################################
 
 Hello! Welcome to the *Ensemblator*. The purpose of this readme is to help 
