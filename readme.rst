@@ -15,7 +15,26 @@ those.
 
 ..  image:: screenshots/all3.png
 
+Table of Contents
+******************
 
+* `Installation <#installation>`_
+
+* `Requirements <#requirements>`_
+
+* `Usage <#usage>`_
+
+    + `The main menu <#the-main-menu>`_
+
+    + `Preparing your files for analysis <#preparing-your-files-for-analysis>`_
+
+    + `Analyzing your prepared ensemble <#analyzing-your-prepared-ensemble>`_
+
+    + `Understanding the output <#understanding-the-output>`_
+
+* `Known Bugs <#known-bugs>`_
+
+* `Bug Reports <#bug-reports>`_
 
 	
 Installation:
