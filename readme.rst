@@ -250,7 +250,7 @@ Calculating LODR
 
 
 Calculating Discrimination Index
--------------------------------------
+--------------------------------
 
     For a given M,N pair of grouped structures, for each of the two groups, every atom’s global Discrimination score is calculated as the mean pairwise distance between the groups minus the mean pairwise distance within the group, divided by the higher of the two values: 
 
