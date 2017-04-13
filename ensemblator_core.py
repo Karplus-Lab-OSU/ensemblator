@@ -2671,11 +2671,14 @@ def analyze(options):
             oldImprovement = improvement
             common_core_percent = round((float(all_atoms) - float(counter)) / float(all_atoms), 3)
 
+            if no_atoms:
+                print("Found a pair with a core of less than 20%, with a cutoff of " + str(dcut) + " A"
+                      " using " + str(sampleSize) + " out of " + str(len(model_list)) + " models.")
+            else:
+                print("Common core percent = " + str(common_core_percent * 100) + " at cutoff of " + str(dcut) + " A, "
+                      " using " + str(sampleSize) + " out of " + str(len(model_list)) + " models.")
 
-            print("Common core percent = " + str(common_core_percent * 100) + " at cutoff of " + str(dcut) + " A, "
-                  " using " + str(sampleSize) + " out of " + str(len(model_list)) + " models.")
-
-            if common_core_percent < 0.2:
+            if common_core_percent < 0.2 or no_atoms:
                 dcut = dcut * 1.3
                 improvement = 0.2 - common_core_percent
             elif common_core_percent > 0.4:
@@ -2684,7 +2687,9 @@ def analyze(options):
 
             actualImprovement = oldImprovement - improvement
 
-            if (common_core_percent > 0.2 and common_core_percent < 0.4) and sampleSize < int(len(model_list) * 0.5):
+            if no_atoms:
+                pass
+            elif (common_core_percent > 0.2 and common_core_percent < 0.4) and sampleSize < int(len(model_list) * 0.5):
                 # do it again with a half size sample
                 common_core_percent = 0.0
                 sampleSize = int(len(model_list) * 0.5)
