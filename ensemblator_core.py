@@ -2599,7 +2599,7 @@ def analyze(options):
 
 
         # loop until a good common core is identified with the sample selected, and the sample size is at least half the models
-        while (common_core_percent < 0.2 or common_core_percent > 0.4) or sampleSize <= int(len(model_list) * 0.5):
+        while (common_core_percent < 0.2 or common_core_percent > 0.4) or sampleSize < int(len(model_list) * 0.5):
 
             # don't let this value drop below 10
             if sampleSize < 10:
@@ -2676,7 +2676,7 @@ def analyze(options):
 
             actualImprovement = oldImprovement - improvement
 
-            if (common_core_percent > 0.2 and common_core_percent < 0.4) and sampleSize <= int(len(model_list) * 0.5):
+            if (common_core_percent > 0.2 and common_core_percent < 0.4) and sampleSize < int(len(model_list) * 0.5):
                 # do it again with a half size sample
                 common_core_percent = 0.0
                 sampleSize = int(len(model_list) * 0.5)
@@ -3177,15 +3177,15 @@ def analyze(options):
                                                    ) +
                                                "\t" +
                                                str(eeglobal_dict \
-                                                       ["disc"] \
-                                                       [resid] \
-                                                       [atomid]
+                                                   ["closest_approach_index"]
+                                                   [resid]
+                                                   [atomid]
                                                    ) +
                                                "\t" +
                                                str(eeglobal_dict \
-                                                       ["closest_approach_index"]
-                                                   [resid]
-                                                   [atomid]
+                                                       ["disc"] \
+                                                       [resid] \
+                                                       [atomid]
                                                    ) +
                                                "\t" +
                                                "True" +
