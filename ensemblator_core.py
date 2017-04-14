@@ -2579,6 +2579,10 @@ def analyze(options):
                 "\n"
             )
 
+        # clean up
+        pool.close()
+        pool.join()
+
         # self-self pairs, needed to get a complete array later
         # all these stats should be zero
         for modelid in model_list:
@@ -2682,14 +2686,22 @@ def analyze(options):
             pool = mp.Pool(processes=options.cores)
             results = [pool.apply(pairwise_cutoff_auto_search, args=(x,y)) for x,y in pairwise_list]
             for result in results:
+
                 #print result
-                if result[0] == True:
-                    no_atoms = True
-                    all_atoms = result[4]
+                no_atoms = result[0]
+                atoms2 = result[1]
+                x = result[2]
+                y = result[3]
+                all_atoms = result[4]
+
+                if no_atoms:
                     break
                 else:
-                    atoms_to_ignore[str(result[2]) + "," + str(result[3])] = result[1]
-                    all_atoms = result[4]
+                    atoms_to_ignore[str(x) + "," + str(y)] = atoms2
+
+            # clean up
+            pool.close()
+            pool.join()
 
             # generate common-core aligned file
             print("\n\n\nIdentifying common convergant atoms in sampled pairwise structures, and "
@@ -2811,6 +2823,10 @@ def analyze(options):
                 str(dis_score) +
                 "\n"
             )
+
+        # clean up
+        pool.close()
+        pool.join()
 
         # self-self pairs, needed to get a complete array later
         # all these stats should be zero
