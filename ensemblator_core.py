@@ -1633,8 +1633,38 @@ def get_min(atom_dist_dict):
 # this is the final alignment funtion, which will align all models to the
 # first model, using only the common consensus core atoms
 def final_aligner(outputname, atoms_to_ignore):
+
+    # get the ref model by looking for the model with the lowest average distance score
+    dist_dict = NestedDict()
+    mean_dist_dict = NestedDict()
+
+    with open("pairwise_analysis.tsv") as pairwise_file:
+        next(pairwise_file)
+
+        for line in pairwise_file:
+            line = line.split("\t")
+            x = line[0]
+            y = line[1]
+            dis = line[5]
+            if dist_dict[x] == {}:
+                dist_dict[x] = []
+            if dist_dict[y] == {}:
+                dist_dict[y] = []
+            # fill out the dictionary symmetrically
+            dist_dict[x].append(float(dis))
+            dist_dict[y].append(float(dis))
+
+    # get the mean distance to each other model for each model
+    for x in dist_dict:
+        mean_dist_dict[x] = np.mean(dist_dict[x])
+
+    least_deviant_model = min(mean_dist_dict, key=mean_dist_dict.get)
+    least_deviant_model_dist = mean_dist_dict[least_deviant_model]
+
+    print "The model with the lowest average distance is model " + str(least_deviant_model) + " with an average distance of " + str(least_deviant_model_dist) + "\n"
+
     # first model
-    ref_model = structure[0]
+    ref_model = structure[int(least_deviant_model)]
 
     # every other model
     for alt_model in structure:
@@ -2596,10 +2626,15 @@ def analyze(options):
         # if the loop is farther from the target range, decrease the sample size
         # if the loop is closer to the target range, increase the sample size
 
+        # stop after 100 tries
+        search_counter = 0
+
 
 
         # loop until a good common core is identified with the sample selected, and the sample size is at least half the models
-        while (common_core_percent < 0.2 or common_core_percent > 0.4) or sampleSize < int(len(model_list) * 0.5):
+        while ((common_core_percent < 0.2 or common_core_percent > 0.4) or sampleSize < int(len(model_list) * 0.5)) and search_counter < 50:
+
+            search_counter += 1
 
             # don't let this value drop below 10
             if sampleSize < 10:
@@ -2702,7 +2737,12 @@ def analyze(options):
 
 
 
+
         print("\n\nFinal cutoff of " + str(dcut) + " A accepted. Doing final overlay.")
+
+        if search_counter >= 50:
+            print ("Unable to converge on ideal cutoff value. Stopping Search after 50 attempts.")
+
 
         outputname = "global_overlay_" + str(dcut) + ".pdb"
         # use this in the auto analysis, cluster_sep - this is a lazy solution
