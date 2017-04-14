@@ -18,6 +18,9 @@ class TextRedirector(object):
         self.widget.configure(state="disabled")
         self.widget.update_idletasks()
 
+    def flush(self):
+        pass
+
 
 class options:
     def __init__(self):
@@ -38,6 +41,7 @@ class options:
         self.groupn = StrVar()
         self.avg = False
         self.color = False
+        self.cores = 4
 
 
 
@@ -533,6 +537,8 @@ class Analyze:
         self.auto.set(0)
         self.color = IntVar(self.rootWindow)
         self.color.set(0)
+        self.cores = IntVar(self.rootWindow)
+        self.cores.set(4)
         self.dir_to_save = ""
         self.setup_gui()
         self.rootWindow.mainloop()
@@ -690,17 +696,24 @@ class Analyze:
         self.maxclust_entry.configure(state='disable')
 
 
-        color_checkbutton = Checkbutton(self.rootWindow,
-                                        text = "Set b-factors in final " +\
-                                               "ensemble equal to inter-LODR" +\
-                                               " (or group M LODR).",
-                                        variable = self.color
-                                        )
-        color_checkbutton.grid(row = 11,
-                               column = 0,
-                               columnspan = 2,
-                               sticky = W
+
+
+        cores_label = Label(self.rootWindow,
+                               text="Number of cores to run on: "
                                )
+        cores_label.grid(row=11,
+                            column=0,
+                            sticky=W
+                            )
+
+        self.cores_entry = Entry(self.rootWindow,
+                                textvariable = self.cores
+                                )
+        self.cores_entry.grid(row = 11,
+                            column = 1,
+                            columnspan = 2,
+                            sticky = W
+                            )
 
 
 
@@ -766,6 +779,7 @@ class Analyze:
         options.input = self.ensemble
         options.dcut = float(self.dcut.get())
         options.dcutAuto = self.dcutAuto.get()
+        options.cores = self.cores.get()
 
         options.auto = self.auto.get()
         if options.auto == 1:

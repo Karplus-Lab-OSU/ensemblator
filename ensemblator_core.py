@@ -26,13 +26,46 @@ from Bio.Align.Applications import MuscleCommandline
 from Bio import SeqIO
 import Bio.SubsMat.MatrixInfo as sim_matrix
 from sklearn.manifold import TSNE
+import multiprocessing as mp
 
 
 
 os.path.realpath(os.path.dirname(sys.argv[0]))
 
 
+def pairwise_cutoff_auto_search(x, y):
+    # just any random starting condition. I don't think this is really needed
+    # but hey.
+    atoms = 1
+    atoms2 = 500
+    counter = 0
 
+    # do first alignment of the pair, using all atoms
+    first_aligner(x, y)
+    # will realign over and over until the list of kept atoms are exactly
+    # identical before and after overlay
+    while atoms != atoms2:
+        counter += 1
+        # do first dcut check
+        atoms, all_atoms = dcut_atom_checker(x, y)
+        # here the key in atoms_to_ignore is a unique string for each pair,
+        # print x, y, len(atoms) / all_atoms * 100
+
+        if (len(atoms) / all_atoms) <= 0.8:
+            # re-align with only core atoms, giving the pairwise aligner the same
+            # list of atoms to ignore that is specific to this pair
+            pairwise_realigner(x, y, atoms)
+            # now the atoms that pass the check are here in atoms2, and if they
+            # aren't all identical to atoms, then the loop will repeat
+            atoms2, all_atoms = dcut_atom_checker(x, y)
+
+            return [False, atoms2, x, y, all_atoms]
+
+        # else there are already less than 20% common atoms
+        else:
+            return [True, atoms, x, y, all_atoms]
+            # if no_atoms:
+            #     break
 
 # Following block from: ########################################################
 # https://github.com/Phlya/adjustText/blob/master/adjustText/adjustText.py #####
@@ -2508,33 +2541,19 @@ def analyze(options):
         pairwise_list = combinations(model_list, r=2)
         # iterate accross each pair in order, ignoring duplicates and self pairs
         # (they aren't in the pairwise list)
-        for x, y in pairwise_list:
-            # just any random starting condition. I don't think this is really needed
-            # but hey.
-            atoms = 1
-            atoms2 = 500
-            counter = 0
 
-            # do first alignment of the pair, using all atoms
-            first_aligner(x, y)
-            # will realign over and over until the list of kept atoms are exactly
-            # identical before and after overlay
-            while atoms != atoms2:
-                counter += 1
-                # do first dcut check
-                atoms, all_atoms = dcut_atom_checker(x, y)
-                # here the key in atoms_to_ignore is a unique string for each pair,
-                atoms_to_ignore[str(x) + "," + str(y)] = atoms
-                if atoms == 0:
-                    # this would mean that the cutoff is too strict
-                    print "No atoms converge at cutoff."
-                    break
-                # re-align with only core atoms, giving the pairwise aligner the same
-                # list of atoms to ignore that is specific to this pair
-                pairwise_realigner(x, y, atoms_to_ignore[str(x) + "," + str(y)])
-                # now the atoms that pass the check are here in atoms2, and if they
-                # aren't all identical to atoms, then the loop will repeat
-                atoms2, all_atoms = dcut_atom_checker(x, y)
+        pool = mp.Pool(processes=options.cores)
+
+        results = [pool.apply(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
+        for result in results:
+            # print result
+            no_atoms = result[0]
+            atoms2 = result[1]
+            x = result[2]
+            y = result[3]
+            all_atoms = result[4]
+
+            atoms_to_ignore[str(x) + "," + str(y)] = atoms2
 
             # now that a convergent core is found, calculate the stats for this pair
             rms_core = get_rms_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
@@ -2580,6 +2599,8 @@ def analyze(options):
                 "\n"
             )
 
+        pairwise_file.close()
+
         # generate common-core aligned file
         print("Identifying common convergant atoms in all pairwise structures, and "
               "realigning original ensemble using only common cutoff accepted atoms..."
@@ -2605,7 +2626,7 @@ def analyze(options):
         print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
               "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
               )
-        pairwise_file.close()
+
 
     # perform a distance cutoff search
     else:
@@ -2655,42 +2676,20 @@ def analyze(options):
 
             no_atoms = False
 
-            for x, y in pairwise_list:
+            # declare it here
+            all_atoms = 1.0
 
-                # just any random starting condition. I don't think this is really needed
-                # but hey.
-                atoms = 1
-                atoms2 = 500
-                counter = 0
-
-
-                # do first alignment of the pair, using all atoms
-                first_aligner(x, y)
-                # will realign over and over until the list of kept atoms are exactly
-                # identical before and after overlay
-                while atoms != atoms2:
-                    counter += 1
-                    # do first dcut check
-                    atoms, all_atoms = dcut_atom_checker(x, y)
-                    # here the key in atoms_to_ignore is a unique string for each pair,
-                    atoms_to_ignore[str(x) + "," + str(y)] = atoms
-
-                    #print x, y, len(atoms) / all_atoms * 100
-
-                    if (len(atoms) / all_atoms) <= 0.8:
-                        # re-align with only core atoms, giving the pairwise aligner the same
-                        # list of atoms to ignore that is specific to this pair
-                        pairwise_realigner(x, y, atoms_to_ignore[str(x) + "," + str(y)])
-                        # now the atoms that pass the check are here in atoms2, and if they
-                        # aren't all identical to atoms, then the loop will repeat
-                        atoms2, all_atoms = dcut_atom_checker(x, y)
-
-                    #else there are already less than 20% common atoms
-                    else:
-                        no_atoms = True
-                        break
-                if no_atoms:
+            pool = mp.Pool(processes=options.cores)
+            results = [pool.apply(pairwise_cutoff_auto_search, args=(x,y)) for x,y in pairwise_list]
+            for result in results:
+                #print result
+                if result[0] == True:
+                    no_atoms = True
+                    all_atoms = result[4]
                     break
+                else:
+                    atoms_to_ignore[str(result[2]) + "," + str(result[3])] = result[1]
+                    all_atoms = result[4]
 
             # generate common-core aligned file
             print("\n\n\nIdentifying common convergant atoms in sampled pairwise structures, and "
@@ -2769,34 +2768,25 @@ def analyze(options):
         pairwise_list = combinations(model_list, r=2)
         # iterate accross each pair in order, ignoring duplicates and self pairs
         # (they aren't in the pairwise list)
-        for x, y in pairwise_list:
-            # just any random starting condition. I don't think this is really needed
-            # but hey.
-            atoms = 1
-            atoms2 = 500
-            counter = 0
 
-            # do first alignment of the pair, using all atoms
-            first_aligner(x, y)
-            # will realign over and over until the list of kept atoms are exactly
-            # identical before and after overlay
-            while atoms != atoms2:
-                counter += 1
-                # do first dcut check
-                atoms, all_atoms = dcut_atom_checker(x, y)
-                # here the key in atoms_to_ignore is a unique string for each pair,
-                atoms_to_ignore[str(x) + "," + str(y)] = atoms
+        no_atoms = False
 
-                if atoms == 0:
-                    # this would mean that the cutoff is too strict
-                    print "No atoms converge at cutoff."
-                    break
-                # re-align with only core atoms, giving the pairwise aligner the same
-                # list of atoms to ignore that is specific to this pair
-                pairwise_realigner(x, y, atoms_to_ignore[str(x) + "," + str(y)])
-                # now the atoms that pass the check are here in atoms2, and if they
-                # aren't all identical to atoms, then the loop will repeat
-                atoms2, all_atoms = dcut_atom_checker(x, y)
+        # declare it here
+        all_atoms = 1.0
+
+
+        pool = mp.Pool(processes=options.cores)
+
+        results = [pool.apply(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
+        for result in results:
+            # print result
+            no_atoms = result[0]
+            atoms2 = result[1]
+            x = result[2]
+            y = result[3]
+            all_atoms = result[4]
+
+            atoms_to_ignore[str(x) + "," + str(y)] = atoms2
 
             # now that a convergent core is found, calculate the stats for this pair
             rms_core = get_rms_core(x, y, atoms_to_ignore[str(x) + "," + str(y)])
@@ -2842,6 +2832,8 @@ def analyze(options):
                 "\n"
             )
 
+        pairwise_file.close()
+
         # generate common-core aligned file
         print("Identifying common convergant atoms in all pairwise structures, and "
               "realigning original ensemble using only common cutoff accepted atoms..."
@@ -2867,7 +2859,7 @@ def analyze(options):
         print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
               "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
               )
-        pairwise_file.close()
+
 
 
 

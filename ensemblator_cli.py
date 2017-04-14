@@ -130,6 +130,12 @@ parser.add_option(
     dest="maxclust",
     default=3,
     help=("Maximum number of clusters to group the results into."))
+parser.add_option(
+    "--cores",
+    type='int',
+    dest="cores",
+    default=4,
+    help=("Number of cores to use for pairwise analysis"))
 parser.add_option("-m",
                   "--groupm",
                   dest="groupm",
