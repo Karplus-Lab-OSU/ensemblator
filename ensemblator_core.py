@@ -2544,14 +2544,14 @@ def analyze(options):
 
         pool = mp.Pool(processes=options.cores)
 
-        results = [pool.apply(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
+        results = [pool.apply_async(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
         for result in results:
             # print result
-            no_atoms = result[0]
-            atoms2 = result[1]
-            x = result[2]
-            y = result[3]
-            all_atoms = result[4]
+            no_atoms = result.get()[0]
+            atoms2 = result.get()[1]
+            x = result.get()[2]
+            y = result.get()[3]
+            all_atoms = result.get()[4]
 
             atoms_to_ignore[str(x) + "," + str(y)] = atoms2
 
@@ -2651,14 +2651,14 @@ def analyze(options):
         # if the loop is farther from the target range, decrease the sample size
         # if the loop is closer to the target range, increase the sample size
 
-        # stop after 100 tries
+        # stop after 50 tries
         search_counter = 0
-
-
+        tried_cutoffs = []
 
         # loop until a good common core is identified with the sample selected, and the sample size is at least half the models
         while ((common_core_percent < 0.2 or common_core_percent > 0.4) or sampleSize < int(len(model_list) * 0.5)) and search_counter < 50:
 
+            dcut = round(dcut, 3)
             search_counter += 1
 
             # don't let this value drop below 10
@@ -2671,6 +2671,8 @@ def analyze(options):
                 model_sample = model_list
                 sampleSize = len(model_list)
 
+            print("\nNow trying a cutoff of " + str(dcut) + " A, using " +
+                  str(sampleSize) + " out of " + str(len(model_list)) + " models:\n")
 
             atoms_to_ignore = {}
             # list of all pairs
@@ -2683,16 +2685,19 @@ def analyze(options):
             # declare it here
             all_atoms = 1.0
 
+
+
             pool = mp.Pool(processes=options.cores)
-            results = [pool.apply(pairwise_cutoff_auto_search, args=(x,y)) for x,y in pairwise_list]
+
+            results = [pool.apply_async(pairwise_cutoff_auto_search, args=(x,y)) for x, y in pairwise_list]
+
             for result in results:
 
-                #print result
-                no_atoms = result[0]
-                atoms2 = result[1]
-                x = result[2]
-                y = result[3]
-                all_atoms = result[4]
+                no_atoms = result.get()[0]
+                atoms2 = result.get()[1]
+                x = result.get()[2]
+                y = result.get()[3]
+                all_atoms = result.get()[4]
 
                 if no_atoms:
                     break
@@ -2703,10 +2708,6 @@ def analyze(options):
             pool.close()
             pool.join()
 
-            # generate common-core aligned file
-            print("\n\n\nIdentifying common convergant atoms in sampled pairwise structures, and "
-                  "realigning original ensemble using only common cutoff accepted atoms..."
-                  )
             # get the common elements from the dict of all atoms to ignore from all
             # structures
             removal_list = atom_selector(atoms_to_ignore)
@@ -2725,10 +2726,22 @@ def analyze(options):
                       " using " + str(sampleSize) + " out of " + str(len(model_list)) + " models.")
 
             if common_core_percent < 0.2 or no_atoms:
+                # log this cutoff
+                tried_cutoffs.append(dcut)
                 dcut = dcut * 1.3
                 improvement = 0.2 - common_core_percent
             elif common_core_percent > 0.4:
+                # if core too high, reduce cutoff, but not to a value lower than the largest that was too low
+
                 dcut = dcut * 0.7
+
+                try:
+                    highest_low_dcut = max(tried_cutoffs)
+                    if dcut <= highest_low_dcut:
+                        dcut = highest_low_dcut * 1.2
+                except:
+                    pass
+
                 improvement = common_core_percent - 0.4
 
             actualImprovement = oldImprovement - improvement
@@ -2744,7 +2757,7 @@ def analyze(options):
                 sampleSize = int(sampleSize * 0.8)
             elif actualImprovement > 0:
                 # dcut was an improvement, use a larger sample size for next iteration
-                sampleSize = int(sampleSize * 1.2)
+                sampleSize = int(sampleSize * 1.1)
 
 
 
@@ -2788,15 +2801,14 @@ def analyze(options):
 
 
         pool = mp.Pool(processes=options.cores)
-
-        results = [pool.apply(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
+        results = [pool.apply_async(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
         for result in results:
             # print result
-            no_atoms = result[0]
-            atoms2 = result[1]
-            x = result[2]
-            y = result[3]
-            all_atoms = result[4]
+            no_atoms = result.get()[0]
+            atoms2 = result.get()[1]
+            x = result.get()[2]
+            y = result.get()[3]
+            all_atoms = result.get()[4]
 
             atoms_to_ignore[str(x) + "," + str(y)] = atoms2
 
