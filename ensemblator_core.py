@@ -2542,7 +2542,7 @@ def analyze(options):
         # iterate accross each pair in order, ignoring duplicates and self pairs
         # (they aren't in the pairwise list)
 
-        pool = mp.Pool(processes=options.cores)
+        pool = mp.Pool(processes=options.cores, maxtasksperchild=1000)
 
         results = [pool.apply_async(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
         for result in results:
@@ -2687,7 +2687,7 @@ def analyze(options):
 
 
 
-            pool = mp.Pool(processes=options.cores)
+            pool = mp.Pool(processes=options.cores, maxtasksperchild=1000)
 
             results = [pool.apply_async(pairwise_cutoff_auto_search, args=(x,y)) for x, y in pairwise_list]
 
@@ -2700,13 +2700,15 @@ def analyze(options):
                 all_atoms = result.get()[4]
 
                 if no_atoms:
+                    pool.terminate()
                     break
                 else:
                     atoms_to_ignore[str(x) + "," + str(y)] = atoms2
 
-            # clean up
-            pool.close()
-            pool.join()
+            if not no_atoms:
+                # clean up
+                pool.close()
+                pool.join()
 
             # get the common elements from the dict of all atoms to ignore from all
             # structures
@@ -2800,7 +2802,7 @@ def analyze(options):
         all_atoms = 1.0
 
 
-        pool = mp.Pool(processes=options.cores)
+        pool = mp.Pool(processes=options.cores, maxtasksperchild=1000)
         results = [pool.apply_async(pairwise_cutoff_auto_search, args=(x, y)) for x, y in pairwise_list]
         for result in results:
             # print result
