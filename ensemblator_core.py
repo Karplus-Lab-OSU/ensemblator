@@ -2890,15 +2890,6 @@ def analyze(options):
               "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
               )
 
-
-
-
-
-
-
-
-
-
     # this is all the eeGlobal and eeLocal stuff that will run if the m and n
     # group are set manually
     if options.auto == False:
@@ -3661,15 +3652,6 @@ def analyze(options):
     # AUTOMATIC HERE:
     if options.auto == True:
 
-        # this normalizes the datasets
-        # it divides every observation by the stdev of all the observations
-        # (this is different than the default whiten function)
-        def whiten(obs):
-            std_dev = np.std(obs)
-            if std_dev != 0.0:
-                return obs / std_dev
-            else:
-                return obs
 
         # read in the pairwise data file, we gonna build a matrix
         pairwise_file = open("pairwise_analysis.tsv", 'r')
@@ -3778,8 +3760,8 @@ def analyze(options):
 
         print "\nPerforming iterative K-means clustering:\n"
 
-        # get whitened matrixes of these bad boys!
-        dis_score_asmatrix = whiten(np.asmatrix(dis_score_array_list))
+        # get matrixes of these bad boys!
+        dis_score_asmatrix = np.asmatrix(dis_score_array_list)
 
         # loop from 2 to n-minus-one/2 clusters, some number i times each
         for k in range(2, len(labels)):
