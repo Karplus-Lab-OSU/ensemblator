@@ -37,10 +37,8 @@ class options:
         self.dcut = 2.5
         self.auto = False
         self.maxclust = 6
-        self.groupm = StrVar()
-        self.groupn = StrVar()
+        self.groups = StrVar()
         self.avg = False
-        self.color = False
         self.cores = 4
 
 
@@ -527,16 +525,12 @@ class Analyze:
         self.dcutAuto = IntVar(self.rootWindow)
         self.dcutAuto.set(0)
         self.ensemble = ""
-        self.groupm = StringVar(self.rootWindow)
-        self.groupm.set("")
-        self.groupn = StringVar(self.rootWindow)
-        self.groupn.set("")
+        self.groups = StringVar(self.rootWindow)
+        self.groups.set("")
         self.maxclust = IntVar(self.rootWindow)
         self.maxclust.set(3)
         self.auto = IntVar(self.rootWindow)
         self.auto.set(0)
-        self.color = IntVar(self.rootWindow)
-        self.color.set(0)
         self.cores = IntVar(self.rootWindow)
         self.cores.set(4)
         self.dir_to_save = ""
@@ -629,42 +623,22 @@ class Analyze:
 
 
 
-        groupm_label = Label(self.rootWindow,
-                                text = "Group M models: "
+        groups_label = Label(self.rootWindow,
+                                text = "Define groups like so: 0,3,5,6-9,13 2,4,14-20 20-30"
                                 )
-        groupm_label.grid(row = 6,
-                             column = 0,
-                             sticky = W
-                             )
-        self.groupm_entry = Entry(self.rootWindow,
-                                     textvariable = self.groupm
+        groups_label.grid(row = 6,
+                        column = 0,
+                        columnspan=2,
+                        sticky = W
+                        )
+        self.groups_entry = Entry(self.rootWindow,
+                                     textvariable = self.groups
                                      )
-        self.groupm_entry.grid(row = 6,
-                                  column = 1,
-                                  sticky=W
-                                  )
-
-
-        groupn_label = Label(self.rootWindow,
-                                text = "Group N models: "
+        self.groups_entry.grid(row = 7,
+                                column = 1,
+                                columnspan=2,
+                                sticky=E
                                 )
-        groupn_label.grid(row = 7,
-                             column = 0,
-                             sticky = W
-                             )
-        self.groupn_entry = Entry(self.rootWindow,
-                                 text = "0",
-                                 textvariable = self.groupn
-                                     )
-        self.groupn_entry.grid(row = 7,
-                                  column = 1,
-                                  sticky=W
-                                  )
-
-
-
-
-
 
         auto_checkbutton = Checkbutton(self.rootWindow,
                                         text = "Perform automatic clustering",
@@ -735,12 +709,10 @@ class Analyze:
 
     def auto_check(self):
         if self.auto.get() == 1:
-            self.groupm_entry.configure(state = 'disable')
-            self.groupn_entry.configure(state = 'disable')
+            self.groups_entry.configure(state = 'disable')
             self.maxclust_entry.configure(state='normal')
         else:
-            self.groupm_entry.configure(state = 'normal')
-            self.groupn_entry.configure(state = 'normal')
+            self.groups_entry.configure(state = 'normal')
             self.maxclust_entry.configure(state='disable')
 
 
@@ -785,23 +757,19 @@ class Analyze:
         if options.auto == 1:
             options.maxclust = self.maxclust.get()
         else:
-            try:
-                options.groupm = self.parse_range(str(self.groupm.get()))
-            except:
-                print "\n\nPlease select a group M, or choose the auto option."
-                print "\nGroups should be formatted like so: 0,3,5,6-9,13\n\n"
 
-            try:
-                options.groupn = self.parse_range(str(self.groupn.get()))
-            except:
-                pass
+            options.groups = self.groups.get()
 
-        options.color = True if (self.color.get() == 1) else False
+            if options.groups == "":
+                print "\n\nPlease define at least one group, or choose the auto option. Use spaces to separate groups."
+                print "\nGroups should be formatted like so: 0,3,5,6-9,13 2,4,14-20 20-30\n\n"
 
+            else:
+                options.groups = options.groups.split(" ")
 
 
         if(self.dir_to_save != "" and self.ensemble != "") and\
-           (self.auto.get() == 1 or self.groupm.get() != ""):
+           (self.auto.get() == 1 or self.groups.get() != ""):
 
 
                 self.utility.analyze_command_run(options,

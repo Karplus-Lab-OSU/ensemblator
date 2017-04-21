@@ -1,57 +1,46 @@
 #!/usr/bin/env python2
 
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 from ensemblator_core import *
 
 
-# function to allow multiple pdb files in the command line
-def cb(option, opt_str, value, parser):
-    args = []
-    for arg in parser.rargs:
-        if arg[0] != "-":
-            args.append(arg)
-        else:
-            del parser.rargs[:len(args)]
-            break
-        if getattr(parser.values, option.dest):
-            args.extend(getattr(parser.values, option.dest))
-    setattr(parser.values, option.dest, args)
+# checks if there is a valid file at a specified location
+def is_valid_file(parser, arg):
+    if not os.path.exists(arg):
+        parser.error("The file %s does not exist!" % arg)
 
 
-parser = OptionParser()
-parser.add_option("--prepare",
+parser = ArgumentParser()
+parser.add_argument("--prepare",
                   action="store_true",
                   dest="prepare",
                   default=False,
                   help=("Use the ensemblator to create an ensemble ready"
                         " for analysis. Must be done at least once before"
                         " the analysis option can be used without erros."))
-parser.add_option("--analyze",
+parser.add_argument("--analyze",
                   action="store_true",
                   dest="analyze",
                   default=False,
                   help=("Use the ensemblator to analyze an ensemble prepared"
                         " for analysis."))
-parser.add_option("-i",
-                  "--input",
-                  dest="input",
-                  action="callback",
-                  callback=cb,
-                  metavar="FILE",
-                  help="This should be a pdb file, or series of pdb files.")
-parser.add_option(
-    "-o",
-    "--output",
-    dest="output",
-    type="str",
-    help="This descriptor will define the final name of the " + "output file.")
-parser.add_option("--pwd",
+parser.add_argument('-i',
+                    '--input',
+                    dest="input",
+                    metavar=str,
+                    help='This should be a pdb file, or series of pdb files.',
+                    nargs='*')
+parser.add_argument("-o",
+                    "--output",
+                    dest="output",
+                    type=str,
+                    help=("This descriptor will define the final name of the " + "output file."))
+parser.add_argument("--pwd",
                   dest="pwd",
-                  type="str",
-                  help="This defines a working directory to save all output"
-                       " files in.")
-parser.add_option("-p",
+                  type=str,
+                  help=("This defines a working directory to save all output files in."))
+parser.add_argument("-p",
                   "--permissive",
                   action="store_true",
                   dest="permissive",
@@ -59,9 +48,9 @@ parser.add_option("-p",
                   help="If set, will use files to generate ensemble even" +
                        " if there are gaps or chainbreaks. These gaps will " +
                        "propigate into all members of the ensemble.")
-parser.add_option("--semipermissive",
+parser.add_argument("--semipermissive",
                   dest="semipermissive",
-                  type="int",
+                  type=int,
                   default=0,
                   help="If set, will use files to generate ensemble even" +
                        " if there are gaps or chainbreaks, but only if they " +
@@ -69,50 +58,50 @@ parser.add_option("--semipermissive",
                        " (missing residues). Will also remove structures if they"
                        " are too disordered (ie. have many ambigious missing "
                        " atoms.")
-parser.add_option(
+parser.add_argument(
     "-l",
     "--log",
     action="store_true",
     dest="log",
     default=False,
     help="If set, will generate a log file:" + " 'prepare_input.log'.")
-parser.add_option("--align",
+parser.add_argument("--align",
                   action="store_true",
                   dest="align",
                   default=False,
                   help="If set, will perform a sequence alignment first,"
                        " and use those residue numbers to create a better result.")
-parser.add_option("-c",
+parser.add_argument("-c",
                   "--chain",
-                  type="str",
+                  type=str,
                   dest="template",
                   help="Will determine which structure to use when aligning"
                        " sequences. Select a specific input file, and then use a"
                        " comma and state which chain of the file to use as a"
                        " template for the alignments. See the README for"
                        " examples.")
-parser.add_option("--percent",
+parser.add_argument("--percent",
                   dest="percent",
                   default=0.7,
-                  type="float",
+                  type=float,
                   help="Percent identity to use when building ensemble"
                        " using the -align function. Any structure with less"
                        " than this percent identity to the template chain"
                        " won't be included in the analysis.")
-parser.add_option("-d",
+parser.add_argument("-d",
                   "--dcut",
                   dest="dcut",
-                  type='float',
+                  type=float,
                   default=2.5,
                   help="Distance cutoff for core decision.")
-parser.add_option("--auto_cutoff",
+parser.add_argument("--auto_cutoff",
                   dest="dcutAuto",
                   action="store_true",
                   default=False,
                   help="If set, will perform try to automatically detect a"
                        " distance cutoff that will result in a core with"
                        " between 20% and 40% of the total atoms.")
-parser.add_option(
+parser.add_argument(
     "--auto",
     action="store_true",
     dest="auto",
@@ -124,53 +113,34 @@ parser.add_option(
           "group M, and the second to N. "
           "ie. eeLocal_Group_0_Group_1.svg has group 0 as M and "
           "group 1 as N."))
-parser.add_option(
+parser.add_argument(
     "--maxclust",
-    type='int',
+    type=int,
     dest="maxclust",
     default=3,
     help=("Maximum number of clusters to group the results into."))
-parser.add_option(
+parser.add_argument(
     "--cores",
-    type='int',
+    type=int,
     dest="cores",
     default=4,
     help=("Number of cores to use for pairwise analysis"))
-parser.add_option("-m",
-                  "--groupm",
-                  dest="groupm",
-                  type='str',
-                  action="callback",
-                  callback=parse_range,
-                  help=("Models to use in comparision in the first group. Use "
-                        "dashes for a range, commas separate entries. "
-                        "E.g. 1,3,5,8-19,23"))
-parser.add_option("-n",
-                  "--groupn",
-                  dest="groupn",
-                  type='str',
-                  action="callback",
-                  callback=parse_range,
-                  help=("Models to use in comparision in the second group. "
-                        "Use dashes for a range, commas separate entries. "
-                        "E.g. 1,3,5,8-19,23. OPTIONAL: do not include a "
-                        "group N in order to do a single ensemble analysis."))
-parser.add_option("--color",
-                  action="store_true",
-                  dest="color",
-                  default=False,
-                  help=("If set, will set b-factors in the final overlay to "
-                        "relative inter-group LODR scores (if possible, "
-                        "otherwise uses group m scores). Will not do "
-                        "anything in auto-mode."))
-(options, args) = parser.parse_args()
+parser.add_argument("-g",
+                    "--groups",
+                    dest="groups",
+                    type=str,
+                    help=("Groups of which models to compare. Use "
+                        "dashes for a range, commas separate entries. Spaces to separate multiple groups. "
+                        "E.g. 1,3,5,8-19,23 2,4,6-7,20-22 24-30"),
+                    nargs='*')
+options = parser.parse_args()
 # required options
 if not options.prepare and not options.analyze:  # if filename is not given
     parser.error('Must choose either the --prepare or the --analyze option.')
 if not options.pwd:
     parser.error('Must use the "--pwd" option to specify a working directory.')
 if options.auto == False:
-    if not options.groupm and not options.prepare:
+    if not options.groups and not options.prepare:
         parser.error('At least Group M must be specified, or turn on --auto')
 if not options.input:  # if filename is not given
     parser.error('Input not specified')

@@ -299,15 +299,16 @@ print("Plotting t-SNE plots.")
 
 # init the tsne
 tsne = TSNE(n_components=2,
-            perplexity=20,
+            perplexity=40,
             early_exaggeration=4.0,
             learning_rate=200,
-            n_iter=1000,
+            n_iter=5000,
             n_iter_without_progress=50,
             min_grad_norm=0,
             init='pca',
             method='exact',
             verbose=0)
+
 # run tsne on X, which is the cooccurance matrix generated earlier
 reduced = tsne.fit_transform(X)
 
