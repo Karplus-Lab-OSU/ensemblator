@@ -61,6 +61,7 @@ system. Furthermore, you will need the following python packages:
 * matplotlib
 * SciPy
 * scikit-learn
+* tkinter (for the GUI only)
 
 Some of these packages might be difficult to install using pip, but an alternative could be to use a scientific python installation like Anaconda.
 
@@ -188,15 +189,11 @@ Cutoff distance for core atoms
 
     A method for automatic determination of an optimal cutoff distance is also available. This setting (**--auto_cutoff** in the CLI, a **checkbox** in the GUI) will attempt to find a cutoff setting that will yield a final core containing 20-40% of the atoms in the ensemble. Generally this gives the best results, though once a good cutoff distance is known it is much faster to manually specify it each time.
 
-Group M models
+Groups
 ^^^^^^^^^^^^^^
 
-    Define group M for analysis. If not using the auto option, then at least group M must be defined. Members of a group can be separated by commas, as well as ranges specified using dashes. For example, to specify all 20 members of an ensemble as group M, you would type '-m 0-19'. To specify only some, you might type '-m 0-4,13-19'.
+    Define groups for analysis. If not using the auto option, then at least one group must be defined. Members of a group can be separated by commas, as well as ranges specified using dashes. For example, to specify all 20 members of an ensemble as group M, you would type '-m 0-19'. To specify only some, you might type '-g 0-4,13-19'. To compare two groups of this ensemble, you might type '-g 0-4 13-19'.
 
-Group N models
-^^^^^^^^^^^^^^
-
-    Define group N for analysis and comparison to group M.
 
 Perform automatic clustering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -208,17 +205,6 @@ Max # of clusters to search for
 -------------------------------
 
     Allows the user to specify a maximum number of clusters to identify within the ensemble. By default this number is 3. This can be increased as high as the user wants, or as low as 2. Higher values will not significantly increase the computation time, but can lead to less useful results. This value is worth playing around with.
-
-Use average deviation rather than RMSD
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    As stated, for all calculations and results this will used the average deviation rather than the root-mean-square deviation. This should be more robust to extreme outliers. This *will* change the clusters that are detected using the automatic methods.
-
-Set b-factors in final ensemble equal to inter-LODR (or group M LODR)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    Setting this will result in the final models output having the b factors replaced with the Inter-group (if more than one group) or Group M LODR. This allows easy visualization in pymol using the "spectrum b" command (an example of this is the figure at the top of this page).
-
 
 
 Understanding the Output:
