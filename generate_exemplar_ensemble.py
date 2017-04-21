@@ -37,7 +37,8 @@ def cb(option, opt_str, value, parser):
 
 parser = OptionParser()
 parser.add_option(
-    "--input_ensemble",
+    "-i",
+    "--input",
     dest="input",
     type="string",
     metavar="FILE",
@@ -45,7 +46,8 @@ parser.add_option(
          " Something like 'Global_Overlay_2.5.pdb'"
 )
 parser.add_option(
-    "--input_data",
+    "-d",
+    "--data",
     dest="pairwise",
     type="string",
     metavar="FILE",
