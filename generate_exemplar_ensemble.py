@@ -2,7 +2,7 @@
 
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
-from optparse import OptionParser
+from argparse import ArgumentParser
 import numpy as np
 from sklearn.cluster import AffinityPropagation
 from sklearn import metrics
@@ -20,55 +20,40 @@ class NestedDict(dict):
         return self[key]
 
 
-
-# function to allow multiple pdb files in the command line
-def cb(option, opt_str, value, parser):
-    args = []
-    for arg in parser.rargs:
-        if arg[0] != "-":
-            args.append(arg)
-        else:
-            del parser.rargs[:len(args)]
-            break
-        if getattr(parser.values, option.dest):
-            args.extend(getattr(parser.values, option.dest))
-    setattr(parser.values, option.dest, args)
-
-
-parser = OptionParser()
-parser.add_option(
+parser = ArgumentParser()
+parser.add_argument(
     "-i",
     "--input",
     dest="input",
-    type="string",
+    type=str,
     metavar="FILE",
     help="This should be a final ensemble prepared by the Ensemblator."
          " Something like 'Global_Overlay_2.5.pdb'"
 )
-parser.add_option(
+parser.add_argument(
     "-d",
     "--data",
     dest="pairwise",
-    type="string",
+    type=str,
     metavar="FILE",
     help="This should be a 'pairwise_analysis.tsv' file from an Ensemblator run."
 )
-parser.add_option(
+parser.add_argument(
     "-o",
     "--output",
     dest="output",
-    type="str",
+    type=str,
     default="exemplar_ensemble.pdb",
     help="This descriptor will define the final name of the " + "output file."
 )
-parser.add_option(
+parser.add_argument(
     "--exemplars",
     dest="exemplars",
-    type="int",
+    type=int,
     default=10,
     help="Select a number of clusters to find, and thus exemplars to include in the final ensemble."
 )
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 
 
