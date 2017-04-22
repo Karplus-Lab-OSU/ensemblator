@@ -53,6 +53,14 @@ parser.add_argument(
     default=10,
     help="Select a number of clusters to find, and thus exemplars to include in the final ensemble."
 )
+parser.add_argument(
+    "-c",
+    "--color_data",
+    dest="color",
+    type=str,
+    metavar="FILE",
+    help="A text file containing one value per row, to use for coloring the t-SNE plots."
+)
 options = parser.parse_args()
 
 
@@ -329,6 +337,25 @@ plt.scatter(reduced[:, 0],
 # get rid of axis, which is an estimate and should not be taken as gospel
 plt.axis('off')
 plt.savefig(title + ".svg", bbox_inches='tight')
+
+if options.color:
+    f = open(options.color, "r")
+    colors = f.readlines()
+
+    title = "custom_color_TSNE"
+    plt.figure()
+    # begin plotting, using the tsne coords in 2d
+    plt.scatter(reduced[:, 0],
+                reduced[:, 1],
+                c=colors,
+                edgecolors='none',
+                s=80,
+                cmap=plt.get_cmap('YlOrRd')
+                )
+    # get rid of axis, which is an estimate and should not be taken as gospel
+    plt.colorbar()
+    plt.axis('off')
+    plt.savefig(title + ".svg", bbox_inches='tight')
 
 
 print("Done.")
