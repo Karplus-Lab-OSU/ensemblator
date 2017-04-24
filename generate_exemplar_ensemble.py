@@ -306,18 +306,49 @@ tsne = TSNE(n_components=2,
 reduced = tsne.fit_transform(X)
 
 
+non_exemplars_x = []
+non_exemplars_y = []
+exemplars_x = []
+exemplars_y = []
+exemplars_labels = []
+non_exemplars_labels = []
+
+if options.color:
+    with open(options.color) as f:
+        colors = map(float, f)
+    exemplars_colors = []
+    non_exemplars_colors = []
+
 title = "exemplar_TSNE"
-exemplar_status = []
+i = 0
 for x in dis_score:
     if x in exemplar_list:
-        exemplar_status.append(1)
+        exemplars_x.append(reduced[i,0])
+        exemplars_y.append(reduced[i, 1])
+        exemplars_labels.append(labels[i])
+        if options.color:
+            exemplars_colors.append(colors[i])
     else:
-        exemplar_status.append(0)
+        non_exemplars_x.append(reduced[i, 0])
+        non_exemplars_y.append(reduced[i, 1])
+        non_exemplars_labels.append(labels[i])
+        if options.color:
+            non_exemplars_colors.append(colors[i])
+    i += 1
+
 plt.figure()
 # begin plotting, using the tsne coords in 2d
-plt.scatter(reduced[:, 0],
-            reduced[:, 1],
-            c=exemplar_status,
+plt.scatter(non_exemplars_x,
+            non_exemplars_y,
+            c="blue",
+            marker="o",
+            edgecolors='none',
+            s=80
+            )
+plt.scatter(exemplars_x,
+            exemplars_y,
+            c="red",
+            marker="D",
             edgecolors='none',
             s=80
             )
@@ -328,9 +359,17 @@ plt.savefig(title + ".svg", bbox_inches='tight')
 title = "cluster_TSNE"
 plt.figure()
 # begin plotting, using the tsne coords in 2d
-plt.scatter(reduced[:, 0],
-            reduced[:, 1],
-            c=labels,
+plt.scatter(non_exemplars_x,
+            non_exemplars_y,
+            c=non_exemplars_labels,
+            marker="o",
+            edgecolors='none',
+            s=80
+            )
+plt.scatter(exemplars_x,
+            exemplars_y,
+            c=exemplars_labels,
+            marker="D",
             edgecolors='none',
             s=80
             )
@@ -339,24 +378,31 @@ plt.axis('off')
 plt.savefig(title + ".svg", bbox_inches='tight')
 
 if options.color:
-    f = open(options.color, "r")
-    colors = f.readlines()
 
     title = "custom_color_TSNE"
     plt.figure()
-    # begin plotting, using the tsne coords in 2d
-    plt.scatter(reduced[:, 0],
-                reduced[:, 1],
-                c=colors,
+    plt.scatter(non_exemplars_x,
+                non_exemplars_y,
+                c=non_exemplars_colors,
+                marker="o",
                 edgecolors='none',
                 s=80,
                 cmap=plt.get_cmap('YlOrRd')
                 )
+    plt.scatter(exemplars_x,
+                exemplars_y,
+                c=exemplars_colors,
+                marker="D",
+                edgecolors='none',
+                s=80,
+                cmap=plt.get_cmap('YlOrRd')
+                )
+
     # get rid of axis, which is an estimate and should not be taken as gospel
+    plt.clim(vmin=min(colors), vmax=max(colors))
     plt.colorbar()
     plt.axis('off')
     plt.savefig(title + ".svg", bbox_inches='tight')
-
 
 print("Done.")
 
