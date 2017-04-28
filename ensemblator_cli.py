@@ -29,7 +29,7 @@ parser.add_argument('-i',
                     '--input',
                     dest="input",
                     metavar=str,
-                    help='This should be a pdb file, or series of pdb files.',
+                    help='This should be a pdb or cif file, or series of pdb or cif files.',
                     nargs='*')
 parser.add_argument("-o",
                     "--output",

@@ -1513,7 +1513,14 @@ def eeprep(pdbs, bad_files, permissive, semipermissive, outputname):
 # also needs an output name to iterate over
 # many variable names in Esperanto, sorry
 def xrayprep(pdb, output):
-    pdb_reader = PDBParser(PERMISSIVE=1, QUIET=True)
+
+    split_pdb_string = pdb.split(".")
+    file_type = split_pdb_string[len(split_pdb_string) - 1]
+
+    if file_type == "cif":
+        pdb_reader = MMCIFParser(QUIET=True)
+    else:
+        pdb_reader = PDBParser(PERMISSIVE=1, QUIET=True)
 
     # reads the pdb file
     # try:
