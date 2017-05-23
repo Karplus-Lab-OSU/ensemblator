@@ -1063,6 +1063,30 @@ def do_analysis_and_plots(groups, removal_list):
             plt.close()
             print("eeLocal plot saved as '" + title + ".svg'.")
 
+
+            ### output discrimination index table
+
+            title = "Discrimination_Index_Values_dcut=" + str(dcut) + outputname + ".tsv"
+
+            print("Saving Discrimination Index Values used in plot as: " + title)
+
+            output = open(title, "w")
+            output.write(
+                "res_id" + "\t" +
+                "global_backbone_discrimination" + "\t" +
+                "local_discrimination" + "\t" +
+                "unified_discrimination" + "\n")
+
+            for key in eelocal_dict["lodr_disc"].keys():
+                output.write(
+                    str(key) + "\t" +
+                    str(backbone_disc[key]) + "\t" +
+                    str(eelocal_dict["lodr_disc"][key]) + "\t" +
+                    str(mean_disc[key]) + "\n")
+
+            output.close()
+
+
             #### Discrimination plot!
             title = "Discrimination_dcut=" + str(dcut) + outputname
             plt.figure()
