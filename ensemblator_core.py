@@ -1279,7 +1279,8 @@ def aligner(pdb):
 
             print("RMS(first model, model " + str(alt_model.id) + ") = " + str(round(super_imposer.rms, 2)))
 
-        except:
+        except Exception as e:
+            print e
             print("Failed to align model " + str(alt_model.id) + "." +
                   " Consider removal to improve final analysis.")
 
@@ -2761,8 +2762,10 @@ def prepare_input(options):
             index_counter = -1
             # for each residue in the structure
             for residue in prep_structure[0]["A"]:
+
                 pos_counter += 1
                 index_counter += 1
+
                 # as long as reading in a gap, increase the residue number
                 try:
                     while aligned_dict[key][index_counter] == '-':
@@ -2773,7 +2776,12 @@ def prepare_input(options):
                     pass
                 # if not a gap in the alignment
                 # set the residue id to be the universal position
+
+                # check if this id is used elsewhere first, if so, "fix" it
+                if (' ', pos_counter, ' ') in prep_structure[0]["A"]:
+                    prep_structure[0]["A"][(' ', pos_counter, ' ')].id = None
                 residue.id = (' ', pos_counter, ' ')
+
             # save the newly numbered structure
             io.set_structure(prep_structure)
             io.save(key)
