@@ -152,7 +152,7 @@ if options.align:
     if not options.template:  # if filename is not given
         parser.error('Template not specified. When aligning, use '
                      '"--chain filename.pdb,X,X" to specifiy a template chain'
-                     ' and model. eg. "--chain 1q4k.pdb,A,0"')
+                     ' and model. eg. "--chain 1q4k.pdb,0,A"')
 if options.analyze and len(options.input) > 1:
     parser.error('Only one input file may be specified for analysis!')
 if not os.path.exists(options.pwd):
@@ -184,7 +184,7 @@ elif options.prepare == True and options.analyze == False:
         except:
             sys.exit("Template must be formated like so:"
                      " '-chain filename.pdb,chain,model' e.g. "
-                     " '-chain 1q4k.pdb,A,2' or '-chain 1q4k.pdb,A'.")
+                     " '-chain 1q4k.pdb,2,A' or '-chain 1q4k.pdb,A'.")
 
         try:
             try:
@@ -200,7 +200,7 @@ elif options.prepare == True and options.analyze == False:
         except:
             sys.exit("Template must be formated like so:"
                      " '-chain filename.pdb,chain,model' e.g. "
-                     " '-chain 1q4k.pdb,A,2' or '-chain 1q4k.pdb,A'.")
+                     " '-chain 1q4k.pdb,2,A' or '-chain 1q4k.pdb,A'.")
 
     prepare_input(options)
 
