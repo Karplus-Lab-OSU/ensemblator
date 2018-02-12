@@ -15,6 +15,17 @@ those.
 
 ..  image:: screenshots/all3.png
 
+
+Citing the Ensemblator:
+#######################
+
+Brereton, A. E. and Karplus, P. A. (2018), **Ensemblator v3: Robust atom-level comparative analyses and classification of protein structure ensembles.** *Protein Science*, 27: 41–50. doi:10.1002/pro.3249
+
+Abstract
+========
+
+Ensembles of protein structures are increasingly used to represent the conformational variation of a protein as determined by experiment and/or by molecular simulations, as well as uncertainties that may be associated with structure determinations or predictions. Making the best use of such information requires the ability to quantitatively compare entire ensembles. For this reason, we recently introduced the Ensemblator (Clark et al., Protein Sci 2015; 24:1528), a novel approach to compare user-defined groups of models, in residue level detail. Here we describe Ensemblator v3, an open-source program that employs the same basic ensemble comparison strategy but includes major advances that make it more robust, powerful, and user-friendly. Ensemblator v3 carries out multiple sequence alignments to facilitate the generation of ensembles from non-identical input structures, automatically optimizes the key global overlay parameter, optionally performs “ensemble clustering” to classify the models into subgroups, and calculates a novel “discrimination index” that quantifies similarities and differences, at residue or atom level, between each pair of subgroups. The clustering and automatic options mean that no pre-knowledge about an ensemble is required for its analysis. After describing the novel features of Ensemblator v3, we demonstrate its utility using three case studies that illustrate the ease with which complex analyses are accomplished, and the kinds of insights derived from clustering into subgroups and from the detailed information that locates significant differences. The Ensemblator v3 enhances the structural biology toolbox by greatly expanding the kinds of problems to which this ensemble comparison strategy can be applied.
+
 Table of Contents
 ******************
 
