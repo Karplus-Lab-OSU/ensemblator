@@ -3,7 +3,7 @@
 from Tkinter import *
 import tkFileDialog
 import tkMessageBox
-from ensemblator_core import *
+from ensemblator.ensemblator_core import *
 
 
 class TextRedirector(object):

@@ -2,7 +2,7 @@
 
 
 from argparse import ArgumentParser
-from ensemblator_core import *
+from ensemblator.ensemblator_core import *
 
 
 # checks if there is a valid file at a specified location

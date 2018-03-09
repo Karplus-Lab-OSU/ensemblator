@@ -44,13 +44,15 @@ Ensembles of protein structures are increasingly used to represent the conformat
 
 ## Installation:
 
-There are a few ways to install and use the *Ensemblator*:
+1. Clone the repo and change to that directory, then type `pip install .` to install the Ensemblator package.
 
-1. Run the source code:
+2. Run it one of three ways:
 
-   a. [ensemblator.py](ensemblator.py) - The GUI version of the *Ensemblator*. As above you will need to make it executable, or run it using python from the command line. Unlike running from the binary, you will need to ensure you meet all the requirements outlined in the section below.
+   a. [ensemblator_gui.py](ensemblator_gui.py) - The GUI version of the *Ensemblator*. As above you will need to make it executable, or run it using python from the command line. Unlike running from the binary, you will need to ensure you meet all the requirements outlined in the section below.
 
    b. [ensemblator_cli.py](ensemblator_cli.py) - The CLI version of the *Ensemblator*. The installation is the same as for the GUI version, simply download, mark as executable, and ensure you meet all the requirements. The usage is different, in that this version operates from the command line, and thus is more amenable to being part of a automated pipeline.
+
+   c. Run it through python code yourself, using the `options` object, after importing `ensemblator.ensemblator_core`
 
 ## Requirements
 
