@@ -272,7 +272,7 @@ print ("Identified models: " + str(exemplar_list) + " as exemplars.")
 # now get a pdb file of just the exemplars
 
 pdb_reader = PDBParser(PERMISSIVE=1, QUIET=True)
-structure = pdb_reader.get_structure("temp", options.input)
+master_structure = pdb_reader.get_structure("temp", options.input)
 
 
 class ExemplarSelect(Select):
@@ -283,7 +283,7 @@ class ExemplarSelect(Select):
             return 0
 
 io = PDBIO()
-io.set_structure(structure)
+io.set_structure(master_structure)
 io.save(options.output, ExemplarSelect())
 
 print("Saved final ensemble of exemplar structures as " + str(options.output))

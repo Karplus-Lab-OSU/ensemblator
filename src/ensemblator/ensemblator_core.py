@@ -2876,8 +2876,8 @@ def analyze(options):
     # this structure variable is constantly referenced by functions.
     # Do not mess around with it lightly.
     # noinspection PyGlobalUndefined
-    global structure
-    structure = pdb_reader.get_structure("temp", pdb)
+    global master_structure
+    master_structure = pdb_reader.get_structure("temp", pdb)
 
     # do the dcut check if not an automatic search
     if options.dcutAuto == 0:
@@ -2895,7 +2895,7 @@ def analyze(options):
 
         # get the list of models to generate the pairs
         model_list = list()
-        for model in structure:
+        for model in master_structure:
             model_list.append(model.id)
 
         atoms_to_ignore = {}
@@ -3002,7 +3002,7 @@ def analyze(options):
 
         # get the list of models to generate the pairs
         model_list = list()
-        for model in structure:
+        for model in master_structure:
             model_list.append(model.id)
 
         # begin search using 25% of the models
@@ -3139,7 +3139,7 @@ def analyze(options):
 
         # get the list of models to generate the pairs
         model_list = list()
-        for model in structure:
+        for model in master_structure:
             model_list.append(model.id)
 
         atoms_to_ignore = {}
