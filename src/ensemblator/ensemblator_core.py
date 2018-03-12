@@ -1866,7 +1866,7 @@ def cluster_sep(groups):
 
     for groupID in groups:
         io = PDBIO()
-        io.set_structure(structure)
+        io.set_structure(master_structure)
         output_title = "Group_" + str(groupID) + ".pdb"
         group_list = groups[groupID]
         io.save(output_title, GroupSelect())
@@ -1895,17 +1895,17 @@ def eelocal(x, y, resnum):
     # if you do, tell it to skip the first and last residue manually
     try:
         # get atoms
-        ref_atoms.append(structure[x]["A"][resnum - 1]["CA"])
-        ref_atoms.append(structure[x]["A"][resnum - 1]["C"])
-        ref_atoms.append(structure[x]["A"][resnum - 1]["O"])
-        ref_atoms.append(structure[x]["A"][resnum]["N"])
-        ref_atoms.append(structure[x]["A"][resnum]["CA"])
+        ref_atoms.append(master_structure[x]["A"][resnum - 1]["CA"])
+        ref_atoms.append(master_structure[x]["A"][resnum - 1]["C"])
+        ref_atoms.append(master_structure[x]["A"][resnum - 1]["O"])
+        ref_atoms.append(master_structure[x]["A"][resnum]["N"])
+        ref_atoms.append(master_structure[x]["A"][resnum]["CA"])
 
-        alt_atoms.append(structure[y]["A"][resnum - 1]["CA"])
-        alt_atoms.append(structure[y]["A"][resnum - 1]["C"])
-        alt_atoms.append(structure[y]["A"][resnum - 1]["O"])
-        alt_atoms.append(structure[y]["A"][resnum]["N"])
-        alt_atoms.append(structure[y]["A"][resnum]["CA"])
+        alt_atoms.append(master_structure[y]["A"][resnum - 1]["CA"])
+        alt_atoms.append(master_structure[y]["A"][resnum - 1]["C"])
+        alt_atoms.append(master_structure[y]["A"][resnum - 1]["O"])
+        alt_atoms.append(master_structure[y]["A"][resnum]["N"])
+        alt_atoms.append(master_structure[y]["A"][resnum]["CA"])
 
         # get the coords for each atom in the atom lists
         l = len(ref_atoms)
@@ -1925,15 +1925,15 @@ def eelocal(x, y, resnum):
         atoms_x = []
         atoms_y = []
 
-        atoms_x.append(structure[x]["A"][resnum]["C"])
-        atoms_x.append(structure[x]["A"][resnum]["O"])
-        atoms_x.append(structure[x]["A"][resnum + 1]["N"])
-        atoms_x.append(structure[x]["A"][resnum + 1]["CA"])
+        atoms_x.append(master_structure[x]["A"][resnum]["C"])
+        atoms_x.append(master_structure[x]["A"][resnum]["O"])
+        atoms_x.append(master_structure[x]["A"][resnum + 1]["N"])
+        atoms_x.append(master_structure[x]["A"][resnum + 1]["CA"])
 
-        atoms_y.append(structure[y]["A"][resnum]["C"])
-        atoms_y.append(structure[y]["A"][resnum]["O"])
-        atoms_y.append(structure[y]["A"][resnum + 1]["N"])
-        atoms_y.append(structure[y]["A"][resnum + 1]["CA"])
+        atoms_y.append(master_structure[y]["A"][resnum]["C"])
+        atoms_y.append(master_structure[y]["A"][resnum]["O"])
+        atoms_y.append(master_structure[y]["A"][resnum + 1]["N"])
+        atoms_y.append(master_structure[y]["A"][resnum + 1]["CA"])
 
         # get coords
         l = len(atoms_x)
@@ -2056,10 +2056,10 @@ def final_aligner(outputname, atoms_to_ignore):
           " with an average distance of " + str(least_deviant_model_dist) + "\n")
 
     # first model
-    ref_model = structure[int(least_deviant_model)]
+    ref_model = master_structure[int(least_deviant_model)]
 
     # every other model
-    for alt_model in structure:
+    for alt_model in master_structure:
         all_atom_counter = 0
         counter = 0
         ref_atoms = []
@@ -2125,7 +2125,7 @@ def final_aligner(outputname, atoms_to_ignore):
 
     # save the final structure
     io = Bio.PDB.PDBIO()
-    io.set_structure(structure)
+    io.set_structure(master_structure)
     io.save(outputname)
 
     # fix the pdb file format, otherwise all the models are teated as
@@ -2169,8 +2169,8 @@ def final_aligner(outputname, atoms_to_ignore):
 # alignment.
 def first_aligner(x, y):
     # this should be pretty obvious by now
-    ref_model = structure[x]
-    alt_model = structure[y]
+    ref_model = master_structure[x]
+    alt_model = master_structure[y]
 
     all_atom_counter = 0
     counter = 0
@@ -2228,7 +2228,7 @@ def first_aligner(x, y):
 
 def per_atom_distance(x, y):
 
-    ref_model = structure[x]
+    ref_model = master_structure[x]
     distance_dict = {}
 
     for chain in ref_model:
@@ -2236,8 +2236,8 @@ def per_atom_distance(x, y):
             for atom in res:
                 # distances can be calculated in BioPython using the subtract
                 # function
-                distance = structure[x][chain.id][res.id[1]][atom.id] - \
-                           structure[y][chain.id][res.id[1]][atom.id]
+                distance = master_structure[x][chain.id][res.id[1]][atom.id] - \
+                           master_structure[y][chain.id][res.id[1]][atom.id]
 
                 # this id_string will be the key, a string with resnum and
                 # atomtype connected by a : for easy splitting later
@@ -2254,8 +2254,8 @@ def per_atom_distance(x, y):
 # this is the pairwise aligner, which will be called again and again until
 # convergence is reached.
 def pairwise_realigner(x, y, atoms_to_ignore):
-    ref_model = structure[x]
-    alt_model = structure[y]
+    ref_model = master_structure[x]
+    alt_model = master_structure[y]
     all_atom_counter = 0
     counter = 0
     ref_atoms = []
@@ -2321,8 +2321,8 @@ def avg_calc_coords(coords1, coords2):
 # pair of models
 # structure is VERY similar to the aligner functions
 def get_rms_core(x, y, atoms_to_ignore):
-    ref_model = structure[x]
-    alt_model = structure[y]
+    ref_model = master_structure[x]
+    alt_model = master_structure[y]
     ref_atoms = []
     alt_atoms = []
 
@@ -2368,8 +2368,8 @@ def get_rms_core(x, y, atoms_to_ignore):
 
 # exactly as above, only it will do so for all atoms
 def get_rms_non_core(x, y, atoms_outside_core):
-    ref_model = structure[x]
-    alt_model = structure[y]
+    ref_model = master_structure[x]
+    alt_model = master_structure[y]
     ref_atoms = []
     alt_atoms = []
 
@@ -2418,11 +2418,11 @@ def get_rms_non_core(x, y, atoms_outside_core):
 def dcut_atom_checker(x, y):
     atoms_to_ignore = list()
     all_atoms_counter = 0
-    for chain in structure[x]:
+    for chain in master_structure[x]:
         for res in chain:
             for atom in res:
-                atom1 = structure[x][chain.id][res.id[1]][atom.id]
-                atom2 = structure[y][chain.id][res.id[1]][atom.id]
+                atom1 = master_structure[x][chain.id][res.id[1]][atom.id]
+                atom2 = master_structure[y][chain.id][res.id[1]][atom.id]
                 distance = atom1 - atom2
                 if distance < dcut:
                     pass
