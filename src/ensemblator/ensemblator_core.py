@@ -2779,7 +2779,11 @@ def prepare_input(options):
 
                 # check if this id is used elsewhere first, if so, "fix" it
                 if (' ', pos_counter, ' ') in prep_structure[0]["A"]:
-                    prep_structure[0]["A"][(' ', pos_counter, ' ')].id = None
+                    try:
+                        prep_structure[0]["A"][(' ', pos_counter, ' ')].id = None
+                    except ValueError as e:
+                        prep_structure[0]["A"][(' ', pos_counter, ' ')].id = (' ', pos_counter+1000, ' ')
+
                 residue.id = (' ', pos_counter, ' ')
 
             # save the newly numbered structure
@@ -2846,7 +2850,7 @@ def prepare_input(options):
 #### Analyze ####
 ################################################################################
 
-def analyze(options):
+def analyze(options, pairwise_only=False):
     if type(options.input) is not list:
         pdb = options.input
     else:
@@ -2965,6 +2969,9 @@ def analyze(options):
             )
 
         pairwise_file.close()
+
+        if pairwise_only:
+            return
 
         # generate common-core aligned file
         print("Identifying common convergant atoms in all pairwise structures, and "
@@ -3208,6 +3215,9 @@ def analyze(options):
             )
 
         pairwise_file.close()
+
+        if pairwise_only:
+            return
 
         # generate common-core aligned file
         print("Identifying common convergant atoms in all pairwise structures, and "
