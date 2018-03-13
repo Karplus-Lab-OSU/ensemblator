@@ -11,60 +11,12 @@ from sklearn.cluster import AgglomerativeClustering
 from Bio.PDB import *
 
 
-
 # definition for a type of dictionary that will allow new dictionaries to
 # be added on demand
 class NestedDict(dict):
     def __missing__(self, key):
         self[key] = NestedDict()
         return self[key]
-
-if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument(
-        "-i",
-        "--input",
-        dest="input",
-        type=str,
-        metavar="FILE",
-        help="This should be a final ensemble prepared by the Ensemblator."
-             " Something like 'Global_Overlay_2.5.pdb'"
-    )
-    parser.add_argument(
-        "-d",
-        "--data",
-        dest="pairwise",
-        type=str,
-        metavar="FILE",
-        help="This should be a 'pairwise_analysis.tsv' file from an Ensemblator run."
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        dest="output",
-        type=str,
-        default="exemplar_ensemble.pdb",
-        help="This descriptor will define the final name of the " + "output file."
-    )
-    parser.add_argument(
-        "--exemplars",
-        dest="exemplars",
-        type=int,
-        default=10,
-        help="Select a number of clusters to find, and thus exemplars to include in the final ensemble."
-    )
-    parser.add_argument(
-        "-c",
-        "--color_data",
-        dest="color",
-        type=str,
-        metavar="FILE",
-        help="A text file containing one value per row, to use for coloring the t-SNE plots."
-    )
-    options = parser.parse_args()
-
-    get_exemplars(options)
-
 
 ######################
 
@@ -220,39 +172,40 @@ def get_exemplars(options):
     # optional. Default is 6 (as declared in the option.parser at the top)
     k = options.exemplars
 
-    labels = AgglomerativeClustering(k, affinity="euclidean", linkage="complete").fit_predict(X)
-    sil_score = metrics.silhouette_score(X, labels, metric='euclidean')
+    if k < len(dis_score.keys()):
 
-    sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
-    sil_scores_out = open("sil_scores.tsv", "w")
-    counter = 0
-    sil_scores_out.write("id" + "\t" +
-                         "cluster" + "\t" +
-                         "sil_score" + "\n")
-    groups = {}
+        labels = AgglomerativeClustering(k, affinity="euclidean", linkage="complete").fit_predict(X)
+        sil_score = metrics.silhouette_score(X, labels, metric='euclidean')
+        sil_scores = metrics.silhouette_samples(X, labels, metric='euclidean')
+        sil_scores_out = open("sil_scores.tsv", "w")
+        counter = 0
+        sil_scores_out.write("id" + "\t" +
+                             "cluster" + "\t" +
+                             "sil_score" + "\n")
+        groups = {}
 
-    for groupID in range(0, len(set(labels))):
-        groups[groupID] = []
+        for groupID in range(0, len(set(labels))):
+            groups[groupID] = []
 
-    for label in labels:
-        sil_scores_out.write(str(counter) + "\t" +
-                             str(label) + "\t" +
-                             str(sil_scores[counter]) + "\n")
+        for label in labels:
+            sil_scores_out.write(str(counter) + "\t" +
+                                 str(label) + "\t" +
+                                 str(sil_scores[counter]) + "\n")
 
-        groups[label].append(counter)
-        counter += 1
+            groups[label].append(counter)
+            counter += 1
+        print ("\nThere are " + str(k) + " clusters, with a mean "
+               "silhouette score of " + str(sil_score) + ".")
+        print ("Sillhouette Scores saved in 'sil_scores.tsv'\n")
+        sil_scores_out.close()
 
-    # print(groups)
+    else:
 
-
-    print ("\nThere are " + str(k) + " clusters, with a mean "
-           "silhouette score of " + str(sil_score) + ".")
-    print ("Sillhouette Scores saved in 'sil_scores.tsv'\n")
-
-
+        groups = {}
+        for groupID in range(0, len(dis_score.keys())):
+            groups[groupID] = [groupID]  # everything in its own group
 
     # now need to calculate the exemplars for each group
-
     mean_dist_dict = NestedDict()
 
     for groupID in groups:
@@ -420,3 +373,50 @@ def get_exemplars(options):
         good_model_list.append(model_legend[ex_id])
 
     return good_model_list
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-i",
+        "--input",
+        dest="input",
+        type=str,
+        metavar="FILE",
+        help="This should be a final ensemble prepared by the Ensemblator."
+             " Something like 'Global_Overlay_2.5.pdb'"
+    )
+    parser.add_argument(
+        "-d",
+        "--data",
+        dest="pairwise",
+        type=str,
+        metavar="FILE",
+        help="This should be a 'pairwise_analysis.tsv' file from an Ensemblator run."
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        type=str,
+        default="exemplar_ensemble.pdb",
+        help="This descriptor will define the final name of the " + "output file."
+    )
+    parser.add_argument(
+        "--exemplars",
+        dest="exemplars",
+        type=int,
+        default=10,
+        help="Select a number of clusters to find, and thus exemplars to include in the final ensemble."
+    )
+    parser.add_argument(
+        "-c",
+        "--color_data",
+        dest="color",
+        type=str,
+        metavar="FILE",
+        help="A text file containing one value per row, to use for coloring the t-SNE plots."
+    )
+    options = parser.parse_args()
+
+    get_exemplars(options)
