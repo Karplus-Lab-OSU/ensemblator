@@ -3032,7 +3032,7 @@ def analyze(options, pairwise_only=False):
             if sampleSize < 10:
                 sampleSize = 10
 
-            if len(model_list) > 10:
+            if len(model_list) > sampleSize:
                 model_sample = np.random.choice(model_list, size=sampleSize, replace=False)
             else:
                 model_sample = model_list
