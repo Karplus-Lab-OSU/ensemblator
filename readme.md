@@ -58,7 +58,7 @@ Ensembles of protein structures are increasingly used to represent the conformat
 
 ### Strict:
 
-To use the *Ensemblator* source code, you will require Python 3 to be installed on your
+To use the *Ensemblator* source code, you will require Python 2 to be installed on your
 system. Furthermore, you will need the following python packages:
 
 * numpy
