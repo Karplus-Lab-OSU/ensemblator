@@ -13,7 +13,7 @@ those.
 ![image](screenshots/all3.png)
 
 
-## Citing the Ensemblator:
+## Citing the Ensemblator (and understanding how it works):
 
 Brereton, A. E. and Karplus, P. A. (2018), **Ensemblator v3: Robust atom-level comparative analyses and classification of protein structure ensembles.** *Protein Science*, 27: 41–50. doi:10.1002/pro.3249
 
@@ -44,42 +44,26 @@ Ensembles of protein structures are increasingly used to represent the conformat
 
 ## Installation:
 
-1. Clone the repo and change to that directory, then type `pip install .` to install the Ensemblator package.
+In a python3 environment, run `pip install ensemblator`.
 
-2. Run it one of three ways:
-
-   a. [ensemblator_gui.py](ensemblator_gui.py) - The GUI version of the *Ensemblator*. As above you will need to make it executable, or run it using python from the command line. Unlike running from the binary, you will need to ensure you meet all the requirements outlined in the section below.
-
-   b. [ensemblator_cli.py](ensemblator_cli.py) - The CLI version of the *Ensemblator*. The installation is the same as for the GUI version, simply download, mark as executable, and ensure you meet all the requirements. The usage is different, in that this version operates from the command line, and thus is more amenable to being part of a automated pipeline.
-
-   c. Run it through python code yourself, using the `options` object, after importing `ensemblator.ensemblator_core`
-
-## Requirements
-
-### Strict:
-
-To use the *Ensemblator* source code, you will require Python 2 to be installed on your
-system. Furthermore, you will need the following python packages:
-
-* numpy
-* biopython
-* matplotlib
-* SciPy
-* scikit-learn
-* tkinter (for the GUI only)
-
-Some of these packages might be difficult to install using pip, but an alternative could be to use a scientific python installation like Anaconda.
-
-
-### Optional: (but highly recommended)
+## Additional Requirements
 
 * [muscle](http://www.drive5.com/muscle/)
 
    This software is needed for doing sequence alignments when building ensembles. This feature is VERY useful, I highly recommend it. Make sure that it is installed, and in your path as 'muscle'. If you have muscle in your path, but are still encountering errors, please try running from the command line. Sometimes when clicking the icon from the desktop, the PATH variable does not get imported correctly. I don't really know why this happens.
 
 
-
 ## Usage:
+
+###WARNING: GUI NO LONGER EXISTS DUE TO PYTHON3 REQUIREMENTS
+
+To use the command line interface, simply type `ensemblator` in the command line.
+Broadly speaking, you need to `--prepare` and ensemble first, then run again with 
+the `--analyse` tag to analyze it.
+
+It is also possible to use the Ensemblator within python, by importing:
+`from ensemblator.ensemblator_core import analyze, prepare_input`. Both will require 
+an `options` object which mimics the dictionary created by `ensemblator.ensemblator_cli`.
 
 ### The main menu:
 
@@ -92,10 +76,6 @@ Clicking this will open a window for preparing input for analysis. The *Ensembla
 #### Analyze
 
 This is the section of the *Ensemblator* that does the heavy lifting. Here, your prepared ensemble will be analyzed to find a common core, overlayed, and various groups within the ensemble will be compared (groups of your choosing, or automatically detected groups). The final output here will be various plots showing statistics, pdb files for each group (overlayed by core atoms), and a global overlay pdb file (also overlayed by core atoms). For more details, see below.
-
-#### Exit
-
-This exits the program.
 
 
 ### Preparing your files for analysis:

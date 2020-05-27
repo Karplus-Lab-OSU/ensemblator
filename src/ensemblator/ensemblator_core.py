@@ -1,4 +1,3 @@
-
 import Bio
 from Bio.PDB.Superimposer import Superimposer
 from Bio.SVDSuperimposer import SVDSuperimposer
@@ -33,7 +32,7 @@ def parse_range(astr):
     result = set()
     for part in astr.split(','):
         x = part.split('-')
-        result.update(range(int(x[0]), int(x[-1]) + 1))
+        result.update(list(range(int(x[0]), int(x[-1]) + 1)))
     return sorted(result)
 
 def do_analysis_and_plots(groups, removal_list):
@@ -196,7 +195,7 @@ def do_analysis_and_plots(groups, removal_list):
                     else:
                         pass
             eeglobal_out.close()
-            print("Output saved in file 'eeGlobal_out" + outputname + ".tsv'.")
+            print(("Output saved in file 'eeGlobal_out" + outputname + ".tsv'."))
 
             eelocal_out = open("eeLocal_out" + outputname + ".tsv", 'w')
             eelocal_out.write("res_id"
@@ -215,7 +214,7 @@ def do_analysis_and_plots(groups, removal_list):
                                   "\n"
                                   )
             eelocal_out.close()
-            print("Output saved in file 'eeLocal_out" + outputname + ".tsv'.")
+            print(("Output saved in file 'eeLocal_out" + outputname + ".tsv'."))
 
             ### PLOTTING ###
 
@@ -248,8 +247,8 @@ def do_analysis_and_plots(groups, removal_list):
             title = "eeGLOBAL_dcut=" + str(dcut) + outputname
             plt.figure()
             try:
-                plt.plot(backbone_intra_m_rmsd.keys(),
-                         backbone_intra_m_rmsd.values(),
+                plt.plot(list(backbone_intra_m_rmsd.keys()),
+                         list(backbone_intra_m_rmsd.values()),
                          blue,
                          label="Group M RMSD",
                          linewidth=1.5
@@ -274,7 +273,7 @@ def do_analysis_and_plots(groups, removal_list):
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print("eeGlobal plot saved as '" + title + ".svg'.")
+            print(("eeGlobal plot saved as '" + title + ".svg'."))
 
             print("Plotting eeLocal:")
             ## eeLocal plot
@@ -282,8 +281,8 @@ def do_analysis_and_plots(groups, removal_list):
             title = "eeLocal" + outputname
             plt.figure()
             try:
-                plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                         eelocal_dict["group_m_lodr"].values(),
+                plt.plot(list(eelocal_dict["group_m_lodr"].keys()),
+                         list(eelocal_dict["group_m_lodr"].values()),
                          blue,
                          label="Group M RMS-LODR",
                          linewidth=1.5
@@ -308,7 +307,7 @@ def do_analysis_and_plots(groups, removal_list):
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print("eeLocal plot saved as '" + title + ".svg'.")
+            print(("eeLocal plot saved as '" + title + ".svg'."))
 
     else:
 
@@ -316,7 +315,7 @@ def do_analysis_and_plots(groups, removal_list):
         # we need a legend in order to know which models belong to which group
         # used to include this in the names of the plots, but they got too long
 
-        groups_combos = combinations(range(int(len(groups))), 2)
+        groups_combos = combinations(list(range(int(len(groups)))), 2)
 
         groups_legend = open("groups_legend.tsv", "w")
 
@@ -332,9 +331,9 @@ def do_analysis_and_plots(groups, removal_list):
                 group_m = groups[groupn]
                 group_n = groups[groupm]
                 outputname = "_Group_" + str(groupn) + "_Group_" + str(groupm)
-                print("\nComparing groups " + str(groupn) + " and " + str(groupm) + ".\n")
+                print(("\nComparing groups " + str(groupn) + " and " + str(groupm) + ".\n"))
             else:
-                print("\nComparing groups " + str(groupm) + " and " + str(groupn) + ".\n")
+                print(("\nComparing groups " + str(groupm) + " and " + str(groupn) + ".\n"))
 
             for model in group_m:
                 groups_legend.write(str(model) + "\t" + str(groupm) + "\n")
@@ -538,8 +537,8 @@ def do_analysis_and_plots(groups, removal_list):
                 # calulate LODR between m and n structures
                 print("Calculating Inter Group LODR:")
                 inter_group_lodr = get_rmsd(inter_lodr_dict)
-                print("Calculating Minimum LODR between " +
-                      "M and N at each residue:")
+                print(("Calculating Minimum LODR between " +
+                      "M and N at each residue:"))
                 minimum_lodr_info = get_min(inter_lodr_dict)
                 minimum_lodr_index = minimum_lodr_info["index"]
                 minimum_lodr = minimum_lodr_info["min"]
@@ -763,7 +762,7 @@ def do_analysis_and_plots(groups, removal_list):
                     else:
                         pass
             eeglobal_out.close()
-            print("Output saved in file 'eeGlobal_out" + outputname + ".tsv'.")
+            print(("Output saved in file 'eeGlobal_out" + outputname + ".tsv'."))
 
             eelocal_out = open("eeLocal_out" + outputname + ".tsv", 'w')
             eelocal_out.write("res_id"
@@ -836,7 +835,7 @@ def do_analysis_and_plots(groups, removal_list):
                                       "\n"
                                       )
             eelocal_out.close()
-            print("Output saved in file 'eeLocal_out" + outputname + ".tsv'.")
+            print(("Output saved in file 'eeLocal_out" + outputname + ".tsv'."))
 
             ### PLOTTING ###
 
@@ -950,14 +949,14 @@ def do_analysis_and_plots(groups, removal_list):
                         mean_disc[resid] = (backbone_disc[resid] + eelocal_dict["lodr_disc"][resid]) / 2
                     except:
                         mean_disc[resid] = None
-                total_median_disc = np.median([x for x in mean_disc.values() if x is not None])
+                total_median_disc = np.median([x for x in list(mean_disc.values()) if x is not None])
             except:
                 pass
             title = "eeGLOBAL_dcut=" + str(dcut) + outputname
             plt.figure()
             try:
-                plt.plot(backbone_intra_m_rmsd.keys(),
-                         backbone_intra_m_rmsd.values(),
+                plt.plot(list(backbone_intra_m_rmsd.keys()),
+                         list(backbone_intra_m_rmsd.values()),
                          blue,
                          label="Group M RMSD",
                          linewidth=1.5
@@ -965,8 +964,8 @@ def do_analysis_and_plots(groups, removal_list):
             except:
                 pass
             try:
-                plt.plot(backbone_intra_n_rmsd.keys(),
-                         backbone_intra_n_rmsd.values(),
+                plt.plot(list(backbone_intra_n_rmsd.keys()),
+                         list(backbone_intra_n_rmsd.values()),
                          green,
                          label="Group N RMSD",
                          linewidth=1.5
@@ -974,14 +973,14 @@ def do_analysis_and_plots(groups, removal_list):
             except:
                 pass
             try:
-                plt.plot(backbone_inter_rmsd.keys(),
-                         backbone_inter_rmsd.values(),
+                plt.plot(list(backbone_inter_rmsd.keys()),
+                         list(backbone_inter_rmsd.values()),
                          purple,
                          label="Between groups RMSD",
                          linewidth=1.5
                          )
-                plt.plot(backbone_closest.keys(),
-                         backbone_closest.values(),
+                plt.plot(list(backbone_closest.keys()),
+                         list(backbone_closest.values()),
                          red,
                          label="Closest Approach",
                          linewidth=1.5
@@ -1005,7 +1004,7 @@ def do_analysis_and_plots(groups, removal_list):
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print("eeGlobal plot saved as '" + title + ".svg'.")
+            print(("eeGlobal plot saved as '" + title + ".svg'."))
 
             print("Plotting eeLocal:")
             ## eeLocal plot
@@ -1013,8 +1012,8 @@ def do_analysis_and_plots(groups, removal_list):
             title = "eeLocal" + outputname
             plt.figure()
             try:
-                plt.plot(eelocal_dict["group_m_lodr"].keys(),
-                         eelocal_dict["group_m_lodr"].values(),
+                plt.plot(list(eelocal_dict["group_m_lodr"].keys()),
+                         list(eelocal_dict["group_m_lodr"].values()),
                          blue,
                          label="Group M RMS-LODR",
                          linewidth=1.5
@@ -1022,22 +1021,22 @@ def do_analysis_and_plots(groups, removal_list):
             except:
                 pass
             try:
-                plt.plot(eelocal_dict["group_n_lodr"].keys(),
-                         eelocal_dict["group_n_lodr"].values(),
+                plt.plot(list(eelocal_dict["group_n_lodr"].keys()),
+                         list(eelocal_dict["group_n_lodr"].values()),
                          green, label="Group N RMS-LODR",
                          linewidth=1.5
                          )
             except:
                 pass
             try:
-                plt.plot(eelocal_dict["inter_group_lodr"].keys(),
-                         eelocal_dict["inter_group_lodr"].values(),
+                plt.plot(list(eelocal_dict["inter_group_lodr"].keys()),
+                         list(eelocal_dict["inter_group_lodr"].values()),
                          purple,
                          label="Inter-group RMS-LODR",
                          linewidth=1.5
                          )
-                plt.plot(eelocal_dict["minimum_lodr"].keys(),
-                         eelocal_dict["minimum_lodr"].values(),
+                plt.plot(list(eelocal_dict["minimum_lodr"].keys()),
+                         list(eelocal_dict["minimum_lodr"].values()),
                          red,
                          label="Minimum LODR",
                          linewidth=1.5
@@ -1061,14 +1060,14 @@ def do_analysis_and_plots(groups, removal_list):
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print("eeLocal plot saved as '" + title + ".svg'.")
+            print(("eeLocal plot saved as '" + title + ".svg'."))
 
 
             ### output discrimination index table
 
             title = "Discrimination_Index_Values_dcut=" + str(dcut) + outputname + ".tsv"
 
-            print("Saving Discrimination Index Values used in plot as: " + title)
+            print(("Saving Discrimination Index Values used in plot as: " + title))
 
             output = open(title, "w")
             output.write(
@@ -1077,7 +1076,7 @@ def do_analysis_and_plots(groups, removal_list):
                 "local_discrimination" + "\t" +
                 "unified_discrimination" + "\n")
 
-            for key in eelocal_dict["lodr_disc"].keys():
+            for key in list(eelocal_dict["lodr_disc"].keys()):
                 output.write(
                     str(key) + "\t" +
                     str(backbone_disc[key]) + "\t" +
@@ -1091,8 +1090,8 @@ def do_analysis_and_plots(groups, removal_list):
             title = "Discrimination_dcut=" + str(dcut) + outputname
             plt.figure()
             try:
-                plt.plot(backbone_disc.keys(),
-                         backbone_disc.values(),
+                plt.plot(list(backbone_disc.keys()),
+                         list(backbone_disc.values()),
                          blue,
                          alpha=0.4,
                          label="Global Discrimination Score",
@@ -1100,8 +1099,8 @@ def do_analysis_and_plots(groups, removal_list):
             except:
                 pass
             try:
-                plt.plot(eelocal_dict["lodr_disc"].keys(),
-                         eelocal_dict["lodr_disc"].values(),
+                plt.plot(list(eelocal_dict["lodr_disc"].keys()),
+                         list(eelocal_dict["lodr_disc"].values()),
                          green,
                          alpha=0.4,
                          label="LODR Discrimination Score",
@@ -1109,8 +1108,8 @@ def do_analysis_and_plots(groups, removal_list):
             except:
                 pass
             try:
-                plt.plot(mean_disc.keys(),
-                         mean_disc.values(),
+                plt.plot(list(mean_disc.keys()),
+                         list(mean_disc.values()),
                          red,
                          label="Mean Discrimination Score",
                          linewidth=1.5)
@@ -1137,7 +1136,7 @@ def do_analysis_and_plots(groups, removal_list):
             fig.canvas.set_window_title(title)
             plt.savefig(title + ".svg", bbox_inches='tight')
             plt.close()
-            print("Discrimination Score plot saved as '" + title + ".svg'.")
+            print(("Discrimination Score plot saved as '" + title + ".svg'."))
 
 
 def pairwise_cutoff_auto_search(x, y):
@@ -1277,12 +1276,12 @@ def aligner(pdb):
                 # this model (not just the ones used for the alignment)
                 super_imposer.apply(alt_model.get_atoms())
 
-            print("RMS(first model, model " + str(alt_model.id) + ") = " + str(round(super_imposer.rms, 2)))
+            print(("RMS(first model, model " + str(alt_model.id) + ") = " + str(round(super_imposer.rms, 2))))
 
         except Exception as e:
-            print e
-            print("Failed to align model " + str(alt_model.id) + "." +
-                  " Consider removal to improve final analysis.")
+            print(e)
+            print(("Failed to align model " + str(alt_model.id) + "." +
+                  " Consider removal to improve final analysis."))
 
     io = Bio.PDB.PDBIO()
     io.set_structure(prep_structure)
@@ -1448,7 +1447,7 @@ def eeprep(pdbs, bad_files, permissive, semipermissive, outputname):
     # get the index order to call these in alphabetical order, put those
     # in a list (so now I can call the dictionaries in this order, using
     # these index numbers as the keys.)
-    sorted_keys = sorted(range(len(sorted_structures)),
+    sorted_keys = sorted(list(range(len(sorted_structures))),
                          key=lambda k: sorted_structures[k])
 
     # need a counter that is just based on order, to use here, so that model 0
@@ -1844,8 +1843,8 @@ def backbone_scan(pdb, permissive, semipermissive):
     # this is needed if your input is a file with many models
     # AND alternate chains or conformations
     if not atom_lines:
-        print("No ATOM lines in model " + str(pdb)[0:(len(str(pdb)) - 8)] +
-              ", removing from final ensemble.")
+        print(("No ATOM lines in model " + str(pdb)[0:(len(str(pdb)) - 8)] +
+              ", removing from final ensemble."))
         return True
 
 
@@ -2052,8 +2051,8 @@ def final_aligner(outputname, atoms_to_ignore):
     least_deviant_model = min(mean_dist_dict, key=mean_dist_dict.get)
     least_deviant_model_dist = mean_dist_dict[least_deviant_model]
 
-    print("The model with the lowest average distance is model " + str(least_deviant_model) +
-          " with an average distance of " + str(least_deviant_model_dist) + "\n")
+    print(("The model with the lowest average distance is model " + str(least_deviant_model) +
+          " with an average distance of " + str(least_deviant_model_dist) + "\n"))
 
     # first model
     ref_model = master_structure[int(least_deviant_model)]
@@ -2119,9 +2118,9 @@ def final_aligner(outputname, atoms_to_ignore):
 
         percent_core = 100 * (float(counter) / float(all_atom_counter))
 
-        print("RMS(model " + str(ref_model.id) + ", model " + str(alt_model.id) + " ) = " +
+        print(("RMS(model " + str(ref_model.id) + ", model " + str(alt_model.id) + " ) = " +
               str(round(super_imposer.rms, 2)) + " (Core contained " +
-              str(round(percent_core, 1)) + " percent of total atoms.)")
+              str(round(percent_core, 1)) + " percent of total atoms.)"))
 
     # save the final structure
     io = Bio.PDB.PDBIO()
@@ -2202,8 +2201,8 @@ def first_aligner(x, y):
     try:
         super_imposer.set_atoms(ref_atoms, alt_atoms)
     except:
-        print("Initial alignment of model " + str(x) + " and model " + str(y) +
-              " failed. Possibly there are no atoms here.")
+        print(("Initial alignment of model " + str(x) + " and model " + str(y) +
+              " failed. Possibly there are no atoms here."))
         return
 
     if ref_model.id == alt_model.id:
@@ -2287,9 +2286,9 @@ def pairwise_realigner(x, y, atoms_to_ignore):
     try:
         super_imposer.set_atoms(ref_atoms, alt_atoms)
     except:
-        print("There are no consensus atoms at this cutoff distance that are "
+        print(("There are no consensus atoms at this cutoff distance that are "
               "common to model %i and %i.\nExiting... Please try again with "
-              "a less strict dcut value." % (ref_model.id, alt_model.id))
+              "a less strict dcut value." % (ref_model.id, alt_model.id)))
 
         return
 
@@ -2510,11 +2509,11 @@ def prepare_input(options):
           )
     counter = 0
     for pdb in pdbs:
-        print("Formatting " +
+        print(("Formatting " +
               str(pdb) +
               " for input, and seperating into " +
               "model, chain, and altconf files."
-              )
+              ))
         xray_outname = "prepped_" + \
                        str(os.path.basename(pdb)[0:(len(os.path.basename(pdb)) - 4)])
         prepped_files_list.extend(xrayprep(pdb, xray_outname))
@@ -2534,11 +2533,11 @@ def prepare_input(options):
         #        chain_order_fixer(prepped_file)
         # if simple repair didn't work, remove the file
         if backbone_scan(prepped_file, options.permissive, options.semipermissive):
-            print("Removing file: " +
+            print(("Removing file: " +
                   str(prepped_file) +
                   " from analysis, due to a gap,\nor atoms being in the " +
                   "wrong order in the file (this breaks the ensemblator).\n"
-                  )
+                  ))
             bad_files.append(prepped_file)
 
     good_files = set(prepped_files_list) - set(bad_files)
@@ -2585,13 +2584,13 @@ def prepare_input(options):
                 # command line args for MUSCLE
                 cline = MuscleCommandline(input="sequences.fasta",
                                           out="muscle_align.fasta")
-                print("\n##################\n\n" +
+                print(("\n##################\n\n" +
                       "Running MUSCLE alignment program with the following " +
                       "command: \n" + str(cline) +
                       "\nRemoving files with less than " +
                       str(percent * 100) + "%" +
                       " similarity to the template.\n" +
-                      "\n\n##################\n")
+                      "\n\n##################\n"))
 
                 # RUN MUCSLE
                 stdout, stderr = cline()
@@ -2647,11 +2646,11 @@ def prepare_input(options):
                     if percent_id >= percent:
                         good_files.append(key)
                     else:
-                        print("Removing file: " +
+                        print(("Removing file: " +
                               key +
                               " due to having less than " +
                               str(percent * 100) + "%" +
-                              " similarity to the template.")
+                              " similarity to the template."))
                         # we removed files, so redo the alignmnet
                         align_counter += 1
             # ramp up the cutoff toward the user specified limit
@@ -2685,13 +2684,13 @@ def prepare_input(options):
             # command line args for MUSCLE
             cline = MuscleCommandline(input="sequences.fasta",
                                       out="muscle_align.fasta")
-            print("\n##################\n\n" +
+            print(("\n##################\n\n" +
                   "Running MUSCLE alignment program with the following " +
                   "command: \n" + str(cline) +
                   "\nRemoving files with less than " +
                   str(percent * 100) + "%" +
                   " similarity to the template.\n" +
-                  "\n\n##################\n")
+                  "\n\n##################\n"))
 
             # RUN MUCSLE
             stdout, stderr = cline()
@@ -2747,11 +2746,11 @@ def prepare_input(options):
                 if percent_id >= percent:
                     good_files.append(key)
                 else:
-                    print("Removing file: " +
+                    print(("Removing file: " +
                           key +
                           " due to having less than " +
                           str(percent * 100) + "%" +
-                          " similarity to the template.")
+                          " similarity to the template."))
                     # we removed files, so redo the alignmnet
                     align_counter += 1
 
@@ -2790,10 +2789,10 @@ def prepare_input(options):
             io.set_structure(prep_structure)
             io.save(key)
 
-    print("\n##################\n\nCombining all files into an ensemble ready " +
+    print(("\n##################\n\nCombining all files into an ensemble ready " +
           "for use with ensemblator by ensuring that all atoms match in all " +
           "structures...\n\n##################\n"
-          )
+          ))
 
     # runs eeprep
     legend_dict = eeprep(good_files, bad_files, options.permissive, options.semipermissive, options.output)
@@ -2817,10 +2816,10 @@ def prepare_input(options):
             os.remove(os.path.realpath(prepped_file))
         except:
             pass
-    print("\n##################\n\nWrote file: " +
+    print(("\n##################\n\nWrote file: " +
           str(options.output) +
           "\n\n##################\n"
-          )
+          ))
 
     # align all the structures to make the output look nicer
 
@@ -2843,7 +2842,7 @@ def prepare_input(options):
     # time stuff
     endTime = time.time()
     workTime = endTime - startTime
-    print("\n\nCompleted in: " + str(workTime) + " seconds.\n")
+    print(("\n\nCompleted in: " + str(workTime) + " seconds.\n"))
 
 
 ################################################################################
@@ -2981,9 +2980,9 @@ def analyze(options, pairwise_only=False):
         # structures
         removal_list = atom_selector(atoms_to_ignore)
 
-        print(str(len(removal_list)) +
+        print((str(len(removal_list)) +
               " non-consensus atoms removed from final aligner process."
-              )
+              ))
 
         # now re-align the original structure, against the first model, using only the
         # COMMON core atoms atoms
@@ -2991,7 +2990,7 @@ def analyze(options, pairwise_only=False):
         error_check = final_aligner(outputname, removal_list)
 
         if not error_check:
-            print("Wrote final overlay as: " + outputname)
+            print(("Wrote final overlay as: " + outputname))
 
         print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
               "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
@@ -3038,8 +3037,8 @@ def analyze(options, pairwise_only=False):
                 model_sample = model_list
                 sampleSize = len(model_list)
 
-            print("\nNow trying a cutoff of " + str(dcut) + " A, using " +
-                  str(sampleSize) + " out of " + str(len(model_list)) + " models:\n")
+            print(("\nNow trying a cutoff of " + str(dcut) + " A, using " +
+                  str(sampleSize) + " out of " + str(len(model_list)) + " models:\n"))
 
             atoms_to_ignore = {}
             # list of all pairs
@@ -3082,13 +3081,13 @@ def analyze(options, pairwise_only=False):
             common_core_percent = round((float(all_atoms) - float(len(removal_list))) / float(all_atoms), 3)
 
             if no_atoms:
-                print("Found a pair with a core of less than 20%, with a cutoff of " + str(dcut) + " A"
+                print(("Found a pair with a core of less than 20%, with a cutoff of " + str(dcut) + " A"
                                                                                                    " using " + str(
-                    sampleSize) + " out of " + str(len(model_list)) + " models.")
+                    sampleSize) + " out of " + str(len(model_list)) + " models."))
             else:
-                print("Common core percent = " + str(common_core_percent * 100) + " at cutoff of " + str(dcut) + " A, "
+                print(("Common core percent = " + str(common_core_percent * 100) + " at cutoff of " + str(dcut) + " A, "
                                                                                                                  " using " + str(
-                    sampleSize) + " out of " + str(len(model_list)) + " models.")
+                    sampleSize) + " out of " + str(len(model_list)) + " models."))
 
             if common_core_percent < 0.2 or no_atoms:
                 # log this cutoff
@@ -3124,7 +3123,7 @@ def analyze(options, pairwise_only=False):
                 # dcut was an improvement, use a larger sample size for next iteration
                 sampleSize = int(sampleSize * 1.1)
 
-        print("\n\nFinal cutoff of " + str(dcut) + " A accepted. Doing final overlay.")
+        print(("\n\nFinal cutoff of " + str(dcut) + " A accepted. Doing final overlay."))
 
         if search_counter >= 50:
             print("Unable to converge on ideal cutoff value. Stopping Search after 50 attempts.")
@@ -3227,9 +3226,9 @@ def analyze(options, pairwise_only=False):
         # structures
         removal_list = atom_selector(atoms_to_ignore)
 
-        print(str(len(removal_list)) +
+        print((str(len(removal_list)) +
               " non-consensus atoms removed from final aligner process."
-              )
+              ))
 
         # now re-align the original structure, against the first model, using only the
         # COMMON core atoms atoms
@@ -3237,7 +3236,7 @@ def analyze(options, pairwise_only=False):
         error_check = final_aligner(outputname, removal_list)
 
         if not error_check:
-            print("Wrote final overlay as: " + outputname)
+            print(("Wrote final overlay as: " + outputname))
 
         print("Saved number of rejected atoms per pair, RMSD of all atoms per pair,"
               "and RMSD of only core atoms per pair, as 'pairwise_analysis.tsv'."
@@ -3457,8 +3456,8 @@ def analyze(options, pairwise_only=False):
 
             counter += 1
 
-        print("\nThere are " + str(num_clust) + " clusters, with a mean " +
-              "silhouette score of " + str(sil_score_best) + ".")
+        print(("\nThere are " + str(num_clust) + " clusters, with a mean " +
+              "silhouette score of " + str(sil_score_best) + "."))
         print("Sillhouette Scores saved in 'sil_scores.tsv'\n")
 
         # get the pairwise list of all the clusters compared against each other,
@@ -3600,8 +3599,8 @@ def analyze(options, pairwise_only=False):
                                   gLines[counter].split("\t")[1]
                                   )
                 else:
-                    print("Group legend saved seperatly " +
-                          "due to model # mismatch.")
+                    print(("Group legend saved seperatly " +
+                          "due to model # mismatch."))
                     print("Saved group identity in 'groups_legend.tsv'")
                     mismatch = True
                     break
@@ -3638,7 +3637,7 @@ def analyze(options, pairwise_only=False):
     # time stuff
     endTime = time.time()
     workTime = endTime - startTime
-    print("\nEverything completed in: " + str(workTime) + " seconds.")
-    print("\nResults (images and ensembles) saved in " + options.pwd + "\n")
+    print(("\nEverything completed in: " + str(workTime) + " seconds."))
+    print(("\nResults (images and ensembles) saved in " + options.pwd + "\n"))
 
     # Done!
